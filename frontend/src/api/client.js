@@ -6,6 +6,37 @@ const api = axios.create({
   baseURL: API_BASE_URL,
 });
 
+export const TOKEN_KEY = 'auth_token';
+export const AUTH_EXPIRED_EVENT = 'auth:expired';
+
+api.interceptors.request.use((config) => {
+  try {
+    const token = localStorage.getItem(TOKEN_KEY);
+    if (token) config.headers.Authorization = `Bearer ${token}`;
+  } catch (e) {}
+  return config;
+});
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const isAuthCall = error.config?.url?.startsWith('/api/auth/login') || error.config?.url?.startsWith('/api/auth/register');
+    if (error.response?.status === 401 && !isAuthCall) {
+      window.dispatchEvent(new Event(AUTH_EXPIRED_EVENT));
+    }
+    return Promise.reject(error);
+  }
+);
+
+export const loginUser = async (username, password) => (await api.post('/api/auth/login', { username, password })).data;
+
+export const registerUser = async (username, password) =>
+  (await api.post('/api/auth/register', { username, password })).data;
+
+export const getCurrentUser = async () => (await api.get('/api/auth/me')).data.user;
+
+export const getAdminUsers = async () => (await api.get('/api/admin/users')).data;
+
 export const analyzeResume = async (file, jobDescription, githubUrl) => {
   console.log('[DEBUG client.js] Preparing FormData for /api/analyze...');
   const formData = new FormData();

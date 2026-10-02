@@ -362,18 +362,18 @@ const Results = () => {
   const renderATS = () => (
     <div className="space-y-6 fade-in">
       <div className="glass-card p-6 sm:p-8 rounded-3xl border border-white/10">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+        <div className="flex flex-col gap-4 mb-6">
           <div>
             <h2 className="text-2xl font-heading font-bold text-white">ATS Compatibility Audit</h2>
             <p className="text-xs font-mono text-slate-400">Automated Screening Filter Simulation</p>
           </div>
-          <span className={`px-4 py-2 rounded-full font-mono text-xs font-bold border shrink-0 ${
+          <p className={`w-full px-4 py-3 rounded-2xl font-mono text-xs font-semibold leading-relaxed border break-words ${
             ats.ats_verdict?.includes('Pass')
               ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-[0_0_15px_-3px_rgba(16,185,129,0.4)]'
               : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
           }`}>
             {ats.ats_verdict || 'Audit Completed'}
-          </span>
+          </p>
         </div>
 
         {/* ATS Progress Bar */}
@@ -426,9 +426,8 @@ const Results = () => {
             <table className="w-full text-left text-xs font-mono">
               <thead>
                 <tr className="border-b border-white/10 text-slate-400">
-                  <th className="pb-3 pr-4">High Match Keywords</th>
-                  <th className="pb-3 pr-4">Partial Match</th>
-                  <th className="pb-3">Missing Keywords</th>
+                  <th className="pb-3 pr-4 w-1/2">High Match Keywords</th>
+                  <th className="pb-3 w-1/2">Missing Keywords</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
@@ -437,15 +436,6 @@ const Results = () => {
                     <div className="flex flex-wrap gap-1">
                       {ats.keyword_density?.high_match?.map((kw, i) => (
                         <span key={i} className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                          {kw}
-                        </span>
-                      ))}
-                    </div>
-                  </td>
-                  <td className="py-3 pr-4 align-top">
-                    <div className="flex flex-wrap gap-1">
-                      {ats.keyword_density?.partial_match?.map((kw, i) => (
-                        <span key={i} className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
                           {kw}
                         </span>
                       ))}

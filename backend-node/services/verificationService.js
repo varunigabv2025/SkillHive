@@ -19,6 +19,13 @@ function verifySkill(skill, githubAnalysis) {
   const repoNames = (githubAnalysis.repos || []).map(r => String(r.name || '').toLowerCase());
   const repoDescs = (githubAnalysis.repos || []).map(r => String(r.description || '').toLowerCase());
 
+  // 0. Concrete evidence collected by the GitHub analyzer (manifests, config files)
+  const proven = (githubAnalysis.verifiedSkills || []).find(v => normalizeSkill(v.name).toLowerCase() === skillLower);
+  const concrete = (proven?.evidence || []).find(e => !/^(Primary repository language|Repository topic|Active GitHub profile)/.test(e));
+  if (concrete) {
+    return { verified: true, evidence: concrete };
+  }
+
   // 1. Language verification
   if (languages.includes(skillLower)) {
     return { verified: true, evidence: `Verified in GitHub repository languages (${normSkill})` };

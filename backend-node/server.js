@@ -6,6 +6,7 @@ const multer = require('multer');
 const db = require('./database');
 const { analyzeCandidate } = require('./services/analysisOrchestrator');
 const { analyzeGithubProfile } = require('./githubAnalyzer');
+const { router: authRouter, requireAuth, requireAdmin } = require('./auth');
 
 const app = express();
 const PORT = process.env.PORT || 8000;
@@ -28,8 +29,10 @@ const upload = multer({ storage });
 
 // Routes
 
+app.use('/api/auth', authRouter);
+
 // POST /api/analyze - Single Source of Truth Endpoint
-app.post('/api/analyze', upload.single('resume_file'), async (req, res) => {
+app.post('/api/analyze', requireAuth, upload.single('resume_file'), async (req, res) => {
   try {
     const { job_description, github_url } = req.body;
     const file = req.file;
@@ -72,8 +75,8 @@ app.post('/api/analyze', upload.single('resume_file'), async (req, res) => {
         missing_sections, keyword_density, formatting_warnings, ats_verdict,
         rewrites, readiness_percentage, gap_summary, skill_gaps, milestones,
         subject_line, cover_letter, highlights_used, tone, trust_score, skill_swap,
-        interview_prep
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        interview_prep, user_id
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
     
     const values = [
@@ -108,7 +111,8 @@ app.post('/api/analyze', upload.single('resume_file'), async (req, res) => {
       unifiedResult.coverLetter.tone || '',
       JSON.stringify(unifiedResult.trustAnalysis),
       JSON.stringify(unifiedResult.skillSwap.matches),
-      JSON.stringify(unifiedResult.interviewPrep)
+      JSON.stringify(unifiedResult.interviewPrep),
+      req.user.id
     ];
     
     db.run(insertQuery, values, function(err) {
@@ -125,15 +129,19 @@ app.post('/api/analyze', upload.single('resume_file'), async (req, res) => {
   }
 });
 
-// GET /api/history
-app.get('/api/history', (req, res) => {
+// GET /api/history - users see their own analyses, admins see everyone's
+app.get('/api/history', requireAuth, (req, res) => {
+  const isAdmin = req.user.role === 'admin';
   const query = `
-    SELECT id, created_at, job_title, overall_score
-    FROM resume_analyses
-    ORDER BY created_at DESC
+    SELECT a.id, a.created_at, a.job_title, a.overall_score, a.user_id,
+           u.username AS user_name
+    FROM resume_analyses a
+    LEFT JOIN users u ON u.id = a.user_id
+    ${isAdmin ? '' : 'WHERE a.user_id = ?'}
+    ORDER BY a.created_at DESC
   `;
-  
-  db.all(query, [], (err, rows) => {
+
+  db.all(query, isAdmin ? [] : [req.user.id], (err, rows) => {
     if (err) {
       console.error('Database error:', err);
       return res.status(500).json({ error: 'Failed to fetch history' });
@@ -143,26 +151,46 @@ app.get('/api/history', (req, res) => {
       id: row.id,
       created_at: row.created_at,
       job_title: row.job_title,
-      overall_score: row.overall_score
+      overall_score: row.overall_score,
+      user_id: row.user_id,
+      user_name: row.user_name || (row.user_id ? 'Deleted user' : 'Legacy (no owner)')
     }));
-    
+
     res.json(analyses);
   });
 });
 
+// GET /api/admin/users - admin overview of all accounts
+app.get('/api/admin/users', requireAuth, requireAdmin, (req, res) => {
+  const query = `
+    SELECT u.id, u.username, u.role, u.created_at, COUNT(a.id) AS analysis_count
+    FROM users u
+    LEFT JOIN resume_analyses a ON a.user_id = u.id
+    GROUP BY u.id
+    ORDER BY u.created_at DESC
+  `;
+  db.all(query, [], (err, rows) => {
+    if (err) {
+      console.error('Database error:', err);
+      return res.status(500).json({ error: 'Failed to fetch users' });
+    }
+    res.json(rows);
+  });
+});
+
 // GET /api/history/:id
-app.get('/api/history/:id', (req, res) => {
+app.get('/api/history/:id', requireAuth, (req, res) => {
   const { id } = req.params;
-  
+
   const query = 'SELECT * FROM resume_analyses WHERE id = ?';
-  
+
   db.get(query, [id], (err, row) => {
     if (err) {
       console.error('Database error:', err);
       return res.status(500).json({ error: 'Failed to fetch analysis' });
     }
-    
-    if (!row) {
+
+    if (!row || (req.user.role !== 'admin' && row.user_id !== req.user.id)) {
       return res.status(404).json({ error: 'Analysis not found' });
     }
 
@@ -254,7 +282,7 @@ app.get('/api/history/:id', (req, res) => {
 });
 
 // POST /api/github/analyze
-app.post('/api/github/analyze', async (req, res) => {
+app.post('/api/github/analyze', requireAuth, async (req, res) => {
   try {
     const { username } = req.body;
 

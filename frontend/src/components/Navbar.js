@@ -1,9 +1,17 @@
 import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { Cpu, History, Sparkles, ShieldCheck } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Cpu, History, Sparkles, ShieldCheck, LogOut } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 const Navbar = () => {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, isAdmin, logout } = useAuth();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
 
   return (
     <header className="sticky top-0 z-50 glass-card border-b border-white/10 backdrop-blur-xl">
@@ -46,6 +54,7 @@ const Navbar = () => {
           </div>
 
           {/* Navigation Links */}
+          {user && (
           <nav className="flex items-center space-x-2 sm:space-x-4">
             <Link
               to="/"
@@ -68,9 +77,26 @@ const Navbar = () => {
               }`}
             >
               <History className="w-4 h-4 text-purple-400" />
-              <span>Analysis Logs</span>
+              <span>{isAdmin ? 'All User Logs' : 'Analysis Logs'}</span>
             </Link>
+
+            <div className="flex items-center space-x-2 pl-2 sm:pl-4 border-l border-white/10">
+              <div className="hidden sm:block text-right leading-tight">
+                <p className="text-xs font-semibold text-slate-100">{user.name}</p>
+                <p className={`text-[10px] font-mono uppercase tracking-wider ${isAdmin ? 'text-amber-400' : 'text-slate-400'}`}>
+                  {isAdmin ? 'Admin' : 'User'}
+                </p>
+              </div>
+              <button
+                onClick={handleLogout}
+                title="Sign out"
+                className="p-2 rounded-xl text-slate-300 hover:text-white hover:bg-white/5 transition-all"
+              >
+                <LogOut className="w-4 h-4 text-rose-400" />
+              </button>
+            </div>
           </nav>
+          )}
 
         </div>
       </div>

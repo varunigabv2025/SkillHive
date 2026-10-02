@@ -4,11 +4,19 @@ import { getHistory, getAnalysis } from '../api/client';
 import { Eye, Calendar, Briefcase, Terminal, ArrowLeft, Cpu, Sparkles } from 'lucide-react';
 import toast from 'react-hot-toast';
 import BackgroundEffects from '../components/BackgroundEffects';
+import { useAuth } from '../context/AuthContext';
 
 const History = () => {
   const [analyses, setAnalyses] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [ownerFilter, setOwnerFilter] = useState('all');
   const navigate = useNavigate();
+  const { isAdmin } = useAuth();
+
+  const owners = [...new Map(analyses.map(a => [a.user_id ?? 'none', a.user_name])).entries()];
+  const visibleAnalyses = ownerFilter === 'all'
+    ? analyses
+    : analyses.filter(a => String(a.user_id ?? 'none') === ownerFilter);
 
   useEffect(() => {
     loadHistory();
@@ -79,11 +87,25 @@ const History = () => {
           <div>
             <div className="flex items-center space-x-2 mb-1">
               <Terminal className="w-6 h-6 text-purple-400" />
-              <h1 className="text-3xl font-heading font-extrabold text-white">Analysis History Logs</h1>
+              <h1 className="text-3xl font-heading font-extrabold text-white">
+                {isAdmin ? 'All Users’ Analysis Logs' : 'Analysis History Logs'}
+              </h1>
             </div>
             <p className="text-xs font-mono text-slate-400">
-              Audit logs of previously evaluated developer resumes
+              {isAdmin ? 'Admin view: analyses from every account' : 'Your previously evaluated resumes'}
             </p>
+            {isAdmin && owners.length > 0 && (
+              <select
+                value={ownerFilter}
+                onChange={(e) => setOwnerFilter(e.target.value)}
+                className="mt-3 glass-input rounded-xl px-3 py-2 text-xs font-mono text-slate-100 border border-white/10 focus:outline-none"
+              >
+                <option value="all">All users ({analyses.length})</option>
+                {owners.map(([id, name]) => (
+                  <option key={id} value={String(id)}>{name}</option>
+                ))}
+              </select>
+            )}
           </div>
 
           <button
@@ -110,7 +132,7 @@ const History = () => {
           </div>
         ) : (
           <div className="space-y-4">
-            {analyses.map((analysis) => (
+            {visibleAnalyses.map((analysis) => (
               <div
                 key={analysis.id}
                 className="glass-card-hover p-6 rounded-2xl border border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
@@ -132,6 +154,12 @@ const History = () => {
                     </div>
                     <span>•</span>
                     <span className="text-slate-500">ID: #{analysis.id}</span>
+                    {isAdmin && (
+                      <>
+                        <span>•</span>
+                        <span className="text-amber-400">{analysis.user_name}</span>
+                      </>
+                    )}
                   </div>
                 </div>
 

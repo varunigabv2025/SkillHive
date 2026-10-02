@@ -57,6 +57,7 @@ async function analyzeCandidate({ resumeBuffer, mimeType, jobDescription, github
           githubAnalysis = { username, error: ghResult.error, skills: [], repos: [], verifiedSkills: [] };
         } else {
           githubAnalysis = ghResult;
+          (ghResult.warnings || []).forEach(w => warnings.push(w));
         }
       } catch (ghErr) {
         warnings.push(`GitHub API error: ${ghErr.message}`);

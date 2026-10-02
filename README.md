@@ -8,8 +8,9 @@ A full-stack web app that builds a unified developer profile from a resume and G
 - **Graceful fallback**: if the AI call fails (rate limit, 5xx, bad JSON), that section falls back to a local keyword-based analysis instead of failing the whole request.
 - **GitHub analyzer**: reads a candidate's public repos, languages, topics, and manifest files (`package.json`, `requirements.txt`, Dockerfile, `tsconfig.json`, CI configs) to produce explainable, evidence-backed skills.
 - **Trust Score**: how much of the resume is backed by verifiable evidence. A score of 50 or more unlocks SkillSwap.
-- **SkillSwap matching**: matches candidates by skill complementarity.
-- **History**: SQLite storage of past analyses.
+- **SkillSwap matching**: matches candidates by skill complementarity (what you can teach them, what they can teach you). It currently matches against a **demo pool of 12 fictional developers** in `backend-node/mocks/skillswapProfiles.js`, flagged `isDemo: true`. Replace the pool with real registered users when you have enough of them.
+- **Accounts and roles**: users register and sign in, and each user sees only their own analysis history. An admin account sees every user's history and can filter by user.
+- **History**: SQLite storage of past analyses, owned per user.
 
 ## Project Structure
 
@@ -73,6 +74,8 @@ GITHUB_TOKEN=your_github_personal_access_token_here
 | `AI_MODEL` | No | OpenRouter model ID. Defaults to `google/gemma-3-27b-it`. |
 | `GITHUB_TOKEN` | No | Higher GitHub rate limit. |
 | `PORT` | No | Defaults to 8000. |
+| `JWT_SECRET` | Recommended | Long random string used to sign login tokens. If unset, a temporary one is generated and everyone is logged out on each restart. |
+| `ADMIN_USERNAME` / `ADMIN_PASSWORD` | Yes, to have an admin | The admin account is created from these on startup and re-synced on every restart, so changing them and restarting the backend changes the admin login. Registration only ever creates normal users. |
 
 Without any AI key the app still runs, but every section uses the local keyword fallback.
 
@@ -107,6 +110,20 @@ Open `http://localhost:3000`.
 
 ## API Endpoints
 
+All endpoints except `/api/auth/register` and `/api/auth/login` need an `Authorization: Bearer <token>` header.
+
+### POST `/api/auth/register`
+`{ username, password }`. The username is 3-32 characters (letters, numbers, `.`, `-`, `_`) and case-insensitive; the password is at least 8 characters. Creates a normal user and returns `{ token, user }`.
+
+### POST `/api/auth/login`
+`{ username, password }`. Returns `{ token, user }`. Tokens last 7 days.
+
+### GET `/api/auth/me`
+The signed-in user.
+
+### GET `/api/admin/users`
+Admin only. All accounts with their analysis counts.
+
 ### POST `/api/analyze`
 Runs the full pipeline: resume parsing, AI analysis, GitHub verification, Trust Score and SkillSwap.
 
@@ -120,10 +137,10 @@ Runs the full pipeline: resume parsing, AI analysis, GitHub verification, Trust 
 A full analysis takes roughly 100 seconds with Gemma 4, because the model reasons before answering and six calls run in parallel.
 
 ### GET `/api/history`
-List of past analyses (id, date, job title, score).
+Past analyses (id, date, job title, score, owner). Users get their own; admins get everyone's. Analyses saved before accounts existed have no owner and are visible to admins only.
 
 ### GET `/api/history/:id`
-One saved analysis in full.
+One saved analysis in full. Users can open only their own (others return 404); admins can open any.
 
 ### POST `/api/github/analyze`
 Analyzes a GitHub profile on its own.
