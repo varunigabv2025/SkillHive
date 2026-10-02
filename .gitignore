@@ -67,4 +67,4 @@ Thumbs.db
 # ===========================
 *.pid
 *.seed
-*.tgz
+*.tgznode_modules/
