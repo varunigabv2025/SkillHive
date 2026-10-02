@@ -2,6 +2,9 @@ require('dotenv').config();
 const axios = require('axios');
 
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
+const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
+const GEMMA_MODEL = process.env.GEMMA_MODEL || 'gemma-4-26b-a4b-it';
+const AI_MODEL = process.env.AI_MODEL || 'google/gemma-3-27b-it';
 
 const TECH_KEYWORDS = [
   'React', 'Node.js', 'Express', 'JavaScript', 'TypeScript', 'Python', 'Java', 'C++',
@@ -220,33 +223,56 @@ function fallbackInterviewPrep(resumeText, jobDescription, candidateName = "Cand
   };
 }
 
-async function callAI(systemPrompt, userPrompt) {
-  if (!OPENROUTER_API_KEY || OPENROUTER_API_KEY.includes("your_actual")) {
-    throw new Error('No valid OPENROUTER_API_KEY configured');
+const isRealKey = (key) => key && !key.includes('your_');
+
+async function requestCompletion(prompt) {
+  // Gemma has no system role, so instructions go in the user turn.
+  if (isRealKey(GOOGLE_API_KEY)) {
+    let response;
+    for (let attempt = 0; ; attempt++) {
+      try {
+        response = await axios.post(
+          `https://generativelanguage.googleapis.com/v1beta/models/${GEMMA_MODEL}:generateContent`,
+          {
+            contents: [{ role: 'user', parts: [{ text: prompt }] }],
+            generationConfig: { temperature: 0.3 }
+          },
+          {
+            headers: { 'x-goog-api-key': GOOGLE_API_KEY, 'Content-Type': 'application/json' },
+            timeout: 120000
+          }
+        );
+        break;
+      } catch (error) {
+        const status = error.response?.status;
+        const retryable = status === 429 || status >= 500;
+        if (!retryable || attempt >= 2) throw error;
+        await new Promise(resolve => setTimeout(resolve, 1500 * (attempt + 1)));
+      }
+    }
+    // Gemma 4 emits its reasoning as separate parts flagged thought:true; only the final answer is wanted.
+    const parts = response.data.candidates?.[0]?.content?.parts || [];
+    return parts.filter(p => !p.thought).map(p => p.text || '').join('');
   }
 
-  try {
+  if (isRealKey(OPENROUTER_API_KEY)) {
     const response = await axios.post(
       'https://openrouter.ai/api/v1/chat/completions',
+      { model: AI_MODEL, messages: [{ role: 'user', content: prompt }], temperature: 0.3 },
       {
-        model: 'meta-llama/llama-3.1-8b-instruct',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
-        ],
-        temperature: 0.3,
-        response_format: { type: "json_object" }
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${OPENROUTER_API_KEY}`,
-          'Content-Type': 'application/json'
-        },
-        timeout: 15000
+        headers: { Authorization: `Bearer ${OPENROUTER_API_KEY}`, 'Content-Type': 'application/json' },
+        timeout: 60000
       }
     );
+    return response.data.choices[0].message.content || '';
+  }
 
-    let text = response.data.choices[0].message.content.trim();
+  throw new Error('No GOOGLE_API_KEY or OPENROUTER_API_KEY configured');
+}
+
+async function callAI(systemPrompt, userPrompt) {
+  try {
+    let text = (await requestCompletion(`${systemPrompt}\n\n${userPrompt}`)).trim();
     text = text.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '').trim();
 
     const start = text.indexOf('{');
@@ -255,7 +281,8 @@ async function callAI(systemPrompt, userPrompt) {
 
     return JSON.parse(text.substring(start, end + 1));
   } catch (error) {
-    console.warn('OpenRouter API call failed/bypassed, utilizing local NLP analysis:', error.message);
+    const detail = error.response?.data?.error?.message || error.message;
+    console.warn('AI call failed, utilizing local NLP analysis:', detail);
     throw error;
   }
 }

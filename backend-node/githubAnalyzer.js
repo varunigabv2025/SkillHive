@@ -92,6 +92,7 @@ async function fetchUserRepos(username) {
   const url = `${GITHUB_API_BASE}/users/${encodeURIComponent(username)}/repos`;
   const response = await axios.get(url, {
     headers: githubHeaders(),
+    timeout: 10000,
     params: {
       per_page: 100,
       sort: 'pushed'
@@ -169,6 +170,7 @@ async function inspectRepoFiles(owner, repoName, masterSkillMap) {
     // 3. Docker & Deployment files
     if (fileNames.includes('dockerfile')) recordProof('Docker', `Dockerfile configuration in ${repoName}`, 98);
     if (fileNames.includes('docker-compose.yml') || fileNames.includes('docker-compose.yaml')) recordProof('Docker', `docker-compose configuration in ${repoName}`, 98);
+    if (fileNames.includes('.github') || fileNames.includes('.travis.yml') || fileNames.includes('.gitlab-ci.yml') || fileNames.includes('jenkinsfile')) recordProof('CI/CD', `CI configuration in ${repoName}`, 90);
     if (fileNames.includes('tsconfig.json')) recordProof('TypeScript', `tsconfig.json configuration in ${repoName}`, 96);
     if (fileNames.some(f => f.startsWith('vite.config'))) recordProof('Vite', `vite.config configuration in ${repoName}`, 94);
     if (fileNames.some(f => f.startsWith('tailwind.config'))) recordProof('Tailwind CSS', `tailwind.config configuration in ${repoName}`, 95);
