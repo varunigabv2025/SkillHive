@@ -15,6 +15,7 @@ const Results = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const [result, setResult] = useState(null);
   const [openQuestionIdx, setOpenQuestionIdx] = useState(null);
+  const [requestedMatches, setRequestedMatches] = useState({});
   const navigate = useNavigate();
   const { analysisData } = useAnalysisContext();
 
@@ -258,12 +259,14 @@ const Results = () => {
             <span>Resume Recommendations</span>
           </h3>
           <ul className="space-y-2">
-            {unifiedProfile.resumeRecommendations?.map((rec, i) => (
+            {unifiedProfile.resumeRecommendations?.length > 0 ? unifiedProfile.resumeRecommendations.map((rec, i) => (
               <li key={i} className="p-3 rounded-xl bg-space-950/80 border border-white/10 text-xs font-mono text-cyan-300 flex items-center space-x-2">
                 <span className="text-cyan-400">→</span>
                 <span>{rec}</span>
               </li>
-            ))}
+            )) : (
+              <li className="p-3 rounded-xl bg-space-950/80 border border-white/10 text-xs font-mono text-slate-400">No automatic recommendations were generated for this profile.</li>
+            )}
           </ul>
         </div>
       </div>
@@ -338,10 +341,11 @@ const Results = () => {
                 </div>
 
                 <button
-                  onClick={() => toast.success(`SkillSwap invite request sent to ${match.name}!`)}
-                  className="w-full py-2 px-4 rounded-xl bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/40 text-xs font-mono font-semibold transition-all"
+                  onClick={() => { setRequestedMatches(prev => ({ ...prev, [match.name]: true })); toast.success(`SkillSwap request sent to ${match.name}!`); }}
+                  disabled={!!requestedMatches[match.name]}
+                  className={`w-full py-2 px-4 rounded-xl border text-xs font-mono font-semibold transition-all ${requestedMatches[match.name] ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/40 cursor-default' : 'bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border-purple-500/40'}`}
                 >
-                  Connect for SkillSwap
+                  {requestedMatches[match.name] ? '✓ Request Sent' : 'Connect for SkillSwap'
                 </button>
               </div>
             ))}
