@@ -55,7 +55,8 @@ app.post('/api/analyze', requireAuth, upload.single('resume_file'), async (req, 
       resumeBuffer: file.buffer,
       mimeType: file.mimetype,
       jobDescription: job_description,
-      githubUrl: github_url
+      githubUrl: github_url,
+      userName: req.user.name || req.user.username
     });
 
     // Provide root-level backwards-compatibility keys
