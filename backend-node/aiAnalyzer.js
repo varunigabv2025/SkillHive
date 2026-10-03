@@ -546,6 +546,11 @@ STRICT RULES:
       throw new Error("Generated cover letter failed quality checks.");
     }
 
+    const normalizedName = String(candidateName || '').trim();
+    const generatedLetter = String(generated.cover_letter || '').trim();
+    if (normalizedName && normalizedName !== 'Candidate' && /Sincerely,?\s*$/i.test(generatedLetter)) {
+      generated.cover_letter = generatedLetter + '\n' + normalizedName;
+    }
     return generated;
   } catch (error) {
     return fallbackCoverLetter(resumeText, jobDescription, candidateName, githubAnalysis);
