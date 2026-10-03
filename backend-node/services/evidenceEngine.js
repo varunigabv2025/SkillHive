@@ -67,7 +67,7 @@ const SKILL_ALIASES = {
 const ORDERED_SKILLS = Object.keys(SKILL_ALIASES);
 
 function escapeRegExp(value) {
-  return String(value).replace(/[.*+?^()|[\\]\\]/g, '\\$&');
+  return String(value).replace(/[.*+?^${}()|[\\]\\]/g, '\\return String(value).replace(/[.*+?^()|[\\]\\]/g, '\\$&');');
 }
 
 function containsAlias(text, alias) {
