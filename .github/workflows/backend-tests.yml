@@ -23,6 +23,5 @@ jobs:
           cache: npm
           cache-dependency-path: backend-node/package-lock.json
       - run: npm install
-      - run: npm audit fix
       - run: npm audit --audit-level=high
       - run: npm test
