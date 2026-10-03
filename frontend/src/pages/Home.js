@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { Upload, FileText, CheckCircle2, Target, BookOpen, Mail, Sparkles, Cpu, ShieldCheck, GitBranch, ArrowRight, Zap, Github } from 'lucide-react';
+import { Upload, FileText, CheckCircle2, Target, BookOpen, Mail, Sparkles, ShieldCheck, ArrowRight, Zap, Github, Lock, BarChart3, SearchCheck } from 'lucide-react';
 import { useAnalyze } from '../hooks/useAnalyze';
 import LoadingScreen from '../components/LoadingScreen';
 import BackgroundEffects from '../components/BackgroundEffects';
@@ -50,194 +50,135 @@ const Home = () => {
 
   if (loading) {
     return (
-      <LoadingScreen
-        currentStep={currentStep}
-        progress={progress}
-      />
-    );
-  }
-
-  return (
-    <div className="min-h-screen bg-space-950 pt-6 pb-20 px-4 relative overflow-hidden">
+    <div className="min-h-screen bg-[#07090f] text-slate-100 relative overflow-hidden">
       {BackgroundEffects && <BackgroundEffects />}
 
-      <div className="max-w-4xl mx-auto relative z-10">
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute -top-40 left-1/3 h-96 w-96 rounded-full bg-cyan-500/10 blur-[120px]" />
+        <div className="absolute top-1/3 -right-40 h-96 w-96 rounded-full bg-violet-500/10 blur-[120px]" />
+      </div>
 
-        {/* AI Autonomous Agents Bar */}
-        <div className="mb-8">
-          {AiAgentsBar && <AiAgentsBar />}
+      <main className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-24">
+        <div className="pt-8 mb-14">
+          {AiAgentsBar && <div className="mb-8"><AiAgentsBar /></div>}
+          <div className="max-w-3xl">
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3.5 py-1.5 text-[11px] font-medium text-slate-300 backdrop-blur-xl mb-6">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,.8)]" />
+              AI CAREER INTELLIGENCE <span className="text-slate-600">•</span> Resume + GitHub verification
+            </div>
+            <h1 className="text-5xl sm:text-6xl lg:text-7xl font-heading font-extrabold tracking-[-0.04em] leading-[0.98] text-white">
+              Know exactly where
+              <span className="block bg-gradient-to-r from-cyan-300 via-blue-400 to-violet-400 bg-clip-text text-transparent">your resume stands.</span>
+            </h1>
+            <p className="mt-6 max-w-2xl text-base sm:text-lg leading-8 text-slate-400">
+              SkillHive compares your resume with a target role, checks technical claims against GitHub evidence, and turns the gaps into an actionable career plan.
+            </p>
+          </div>
         </div>
 
-        {/* Hero Banner Header */}
-        <div className="text-center mb-10 space-y-4">
-          <div className="inline-flex items-center space-x-2 px-4 py-1.5 rounded-full glass-pill text-cyan-300 text-xs font-mono mb-2 shadow-[0_0_15px_-3px_rgba(6,182,212,0.3)]">
-            <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-            <span>GEMMA 4 AUTONOMOUS RESUME & CODE VERIFICATION</span>
+        <section className="rounded-[28px] border border-white/10 bg-white/[0.035] shadow-2xl shadow-black/30 backdrop-blur-2xl overflow-hidden">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-6 sm:px-8 py-5 border-b border-white/10">
+            <div>
+              <p className="text-sm font-semibold text-white">New analysis</p>
+              <p className="text-xs text-slate-500 mt-1">Three inputs. One evidence-backed report.</p>
+            </div>
+            <div className="flex items-center gap-2 text-[11px] text-slate-500"><Lock className="w-3.5 h-3.5" /> Your analysis is tied to your account</div>
           </div>
 
-          <h1 className="text-4xl sm:text-6xl font-heading font-extrabold text-white tracking-tight leading-tight">
-            SkillBridge <span className="bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-500 bg-clip-text text-transparent glow-text-cyan">AI</span>
-          </h1>
-          <p className="text-slate-300 font-sans text-base sm:text-lg max-w-2xl mx-auto leading-relaxed">
-            Verify real resume claims against public GitHub code repositories, simulate ATS filters, and generate personalized career roadmaps.
-          </p>
-        </div>
-
-        {/* Command Center Card */}
-        <div className="glass-card p-6 sm:p-10 rounded-3xl border border-white/10 relative overflow-hidden shadow-2xl">
-          <div className="absolute -top-24 -right-24 w-48 h-48 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
-
-          <h2 className="text-xl font-heading font-bold text-white mb-6 flex items-center space-x-2">
-            <Cpu className="w-5 h-5 text-cyan-400" />
-            <span>Autonomous Analysis Command Center</span>
-          </h2>
-
-          <div className="grid md:grid-cols-2 gap-6">
-
-            {/* Input 1: Resume Upload Dropzone */}
-            <div className="space-y-2">
-              <label className="block text-xs font-mono text-cyan-400 uppercase tracking-wider font-semibold">
-                1. Upload Resume (PDF or DOCX) *
-              </label>
-              <div
-                {...getRootProps()}
-                className={`border-2 border-dashed rounded-2xl p-6 text-center cursor-pointer transition-all duration-300 ${
-                  isDragActive
-                    ? 'border-cyan-400 bg-cyan-500/10'
-                    : file
-                    ? 'border-emerald-500/50 bg-emerald-500/5'
-                    : 'border-white/15 hover:border-cyan-500/40 bg-space-950/60'
-                }`}
-              >
-                <input {...getInputProps()} />
-                <div className="flex flex-col items-center justify-center space-y-3">
-                  <div className={`p-3 rounded-xl ${file ? 'bg-emerald-500/20 text-emerald-400' : 'bg-cyan-500/10 text-cyan-400'}`}>
-                    {file ? <FileText className="w-8 h-8" /> : <Upload className="w-8 h-8" />}
-                  </div>
+          <div className="p-6 sm:p-8 lg:p-10">
+            <div className="grid lg:grid-cols-[0.9fr_1.1fr] gap-6">
+              <div className="rounded-2xl border border-white/10 bg-black/20 p-5">
+                <div className="flex items-center justify-between mb-4">
                   <div>
-                    {file ? (
-                      <div>
-                        <p className="font-mono text-xs font-bold text-emerald-300">{file.name}</p>
-                        <p className="text-[10px] text-slate-400 mt-0.5 font-mono">{(file.size / 1024).toFixed(1)} KB • Ready for analysis</p>
-                      </div>
-                    ) : (
-                      <div>
-                        <p className="text-sm font-semibold text-slate-200">Drag & drop resume file</p>
-                        <p className="text-xs text-slate-400 mt-1 font-mono">PDF or DOCX up to 10MB</p>
-                      </div>
-                    )}
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-cyan-400 font-semibold">01 / Resume</p>
+                    <h2 className="mt-1 text-base font-semibold text-white">Upload your resume</h2>
                   </div>
+                  <FileText className="w-5 h-5 text-slate-500" />
+                </div>
+                <div {...getRootProps()} className={\`min-h-[230px] rounded-2xl border border-dashed flex items-center justify-center text-center cursor-pointer transition-all \${isDragActive ? 'border-cyan-400 bg-cyan-500/10' : file ? 'border-emerald-400/40 bg-emerald-400/[0.05]' : 'border-white/15 bg-white/[0.02] hover:border-cyan-400/50 hover:bg-cyan-400/[0.03]'}\`}>
+                  <input {...getInputProps()} />
+                  {file ? (
+                    <div className="px-5">
+                      <div className="mx-auto w-12 h-12 rounded-2xl bg-emerald-400/10 border border-emerald-400/20 flex items-center justify-center mb-4"><CheckCircle2 className="w-6 h-6 text-emerald-400" /></div>
+                      <p className="text-sm font-semibold text-emerald-300 break-all">{file.name}</p>
+                      <p className="text-xs text-slate-500 mt-2">{(file.size / 1024).toFixed(1)} KB · Ready to analyze</p>
+                    </div>
+                  ) : (
+                    <div className="px-5">
+                      <div className="mx-auto w-12 h-12 rounded-2xl bg-cyan-400/10 border border-cyan-400/20 flex items-center justify-center mb-4"><Upload className="w-6 h-6 text-cyan-300" /></div>
+                      <p className="text-sm font-semibold text-white">Drop your resume here</p>
+                      <p className="text-xs text-slate-500 mt-2">or click to browse · PDF / DOCX · up to 10MB</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-6">
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <p className="text-[11px] uppercase tracking-[0.18em] text-violet-400 font-semibold">02 / Target role</p>
+                      <h2 className="mt-1 text-base font-semibold text-white">Job description</h2>
+                    </div>
+                    <Target className="w-5 h-5 text-slate-500" />
+                  </div>
+                  <textarea value={jobDescription} onChange={(e) => setJobDescription(e.target.value)} placeholder="Paste the job description or the role requirements..." className="w-full min-h-[190px] rounded-2xl border border-white/10 bg-black/20 px-4 py-4 text-sm leading-6 text-slate-200 placeholder:text-slate-600 outline-none transition focus:border-violet-400/50 focus:ring-4 focus:ring-violet-400/5 resize-none" />
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <p className="text-[11px] uppercase tracking-[0.18em] text-blue-400 font-semibold">03 / Evidence</p>
+                      <h2 className="mt-1 text-base font-semibold text-white">GitHub profile</h2>
+                    </div>
+                    <Github className="w-5 h-5 text-slate-500" />
+                  </div>
+                  <div className="relative">
+                    <Github className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                    <input type="url" value={githubUrl} onChange={(e) => setGithubUrl(e.target.value)} placeholder="https://github.com/username" className="w-full rounded-2xl border border-white/10 bg-black/20 py-3.5 pl-11 pr-4 text-sm text-slate-200 placeholder:text-slate-600 outline-none transition focus:border-blue-400/50 focus:ring-4 focus:ring-blue-400/5" />
+                  </div>
+                  <p className="mt-2 text-[11px] text-slate-600">Optional. Public repositories can provide supporting evidence for resume claims.</p>
                 </div>
               </div>
             </div>
 
-            {/* Input 2: Job Description Input */}
-            <div className="space-y-2">
-              <label className="block text-xs font-mono text-cyan-400 uppercase tracking-wider font-semibold">
-                2. Target Job Description *
-              </label>
-              <textarea
-                value={jobDescription}
-                onChange={(e) => setJobDescription(e.target.value)}
-                placeholder="Paste the target job description or key requirements..."
-                className="w-full h-[155px] glass-input rounded-2xl p-4 text-slate-100 placeholder-slate-500 focus:outline-none font-mono text-xs border border-white/10 focus:border-cyan-500/50 transition-colors resize-none"
-              />
+            <div className="mt-8 flex flex-col sm:flex-row sm:items-center justify-between gap-5 border-t border-white/10 pt-7">
+              <div className="flex flex-wrap items-center gap-4 text-xs text-slate-500">
+                <span className="flex items-center gap-2"><SearchCheck className="w-4 h-4 text-cyan-400" />Deterministic skill matching</span>
+                <span className="flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-emerald-400" />Evidence verification</span>
+                <span className="flex items-center gap-2"><BarChart3 className="w-4 h-4 text-violet-400" />ATS analysis</span>
+              </div>
+              <button onClick={handleAnalyze} disabled={!file || !jobDescription.trim()} className="group inline-flex items-center justify-center gap-3 rounded-2xl bg-white px-7 py-3.5 text-sm font-bold text-slate-950 transition hover:bg-cyan-50 disabled:cursor-not-allowed disabled:opacity-35 shadow-xl shadow-white/5">
+                <Zap className="w-4 h-4 text-cyan-600 group-hover:scale-110 transition-transform" /> Analyze my profile <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+              </button>
             </div>
           </div>
+        </section>
 
-          {/* Input 3: GitHub Profile URL Field */}
-          <div className="mt-6 space-y-2">
-            <label className="block text-xs font-mono text-cyan-400 uppercase tracking-wider font-semibold flex items-center justify-between">
-              <span className="flex items-center space-x-1.5">
-                <Github className="w-4 h-4 text-cyan-400" />
-                <span>3. GitHub Profile URL (Optional)</span>
-              </span>
-              <span className="text-[10px] text-slate-400 font-normal">Paste public GitHub profile URL</span>
-            </label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
-                <Github className="w-4 h-4" />
-              </div>
-              <input
-                type="url"
-                value={githubUrl}
-                onChange={(e) => setGithubUrl(e.target.value)}
-                placeholder="https://github.com/username"
-                className="w-full glass-input rounded-2xl py-3.5 pl-12 pr-4 text-slate-100 placeholder-slate-500 focus:outline-none font-mono text-sm border border-white/10 focus:border-cyan-500/50 transition-colors"
-              />
+        <section className="mt-16">
+          <div className="flex items-end justify-between gap-4 mb-6">
+            <div>
+              <p className="text-[11px] uppercase tracking-[0.18em] text-slate-500">What SkillHive checks</p>
+              <h2 className="mt-2 text-2xl sm:text-3xl font-heading font-bold text-white tracking-tight">A report built around evidence.</h2>
             </div>
+            <p className="hidden md:block max-w-sm text-right text-xs leading-5 text-slate-500">AI enriches the report. Core matching and verification stay grounded in extracted evidence.</p>
           </div>
-
-          {/* Big Glow Analyze Action Button */}
-          <div className="mt-10 text-center">
-            <button
-              onClick={handleAnalyze}
-              disabled={!file || !jobDescription.trim()}
-              className="group relative inline-flex items-center justify-center px-10 py-5 rounded-2xl font-heading font-extrabold text-lg text-white bg-gradient-to-r from-cyan-500 via-blue-600 to-purple-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-300 hover:scale-[1.03] shadow-[0_0_25px_-5px_rgba(6,182,212,0.5)] overflow-hidden"
-            >
-              <Zap className="w-6 h-6 mr-3 text-cyan-300 group-hover:animate-bounce" />
-              <span>Analyze Resume & Verify Profile</span>
-              <ArrowRight className="w-5 h-5 ml-3 group-hover:translate-x-1 transition-transform" />
-            </button>
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {[
+              { icon: CheckCircle2, title: 'ATS inspection', text: 'See sections, formatting signals, keyword alignment and parsing issues.', color: 'text-cyan-300', bg: 'bg-cyan-400/10' },
+              { icon: ShieldCheck, title: 'Skill verification', text: 'Separate resume claims from skills supported by repository evidence.', color: 'text-emerald-300', bg: 'bg-emerald-400/10' },
+              { icon: BookOpen, title: 'Gap roadmap', text: 'Turn missing role requirements into concrete learning steps.', color: 'text-violet-300', bg: 'bg-violet-400/10' },
+              { icon: Mail, title: 'Application kit', text: 'Generate a tailored cover letter and interview preparation.', color: 'text-blue-300', bg: 'bg-blue-400/10' }
+            ].map(({ icon: Icon, title, text, color, bg }) => (
+              <div key={title} className="rounded-2xl border border-white/10 bg-white/[0.025] p-5 hover:bg-white/[0.045] transition-colors">
+                <div className={\`w-10 h-10 rounded-xl \${bg} flex items-center justify-center mb-4\`}><Icon className={\`w-5 h-5 \${color}\`} /></div>
+                <h3 className="text-sm font-semibold text-white">{title}</h3>
+                <p className="mt-2 text-xs leading-5 text-slate-500">{text}</p>
+              </div>
+            ))}
           </div>
-        </div>
-
-        {/* AI Platform Capabilities Section */}
-        <div className="max-w-6xl mx-auto px-4 pb-20 pt-16 relative z-10">
-          <div className="text-center mb-10">
-            <h2 className="text-2xl sm:text-3xl font-heading font-bold text-white mb-2">
-              SkillBridge AI Platform Modules
-            </h2>
-            <p className="text-slate-400 text-sm font-mono">
-              Autonomous verification and intelligence capabilities
-            </p>
-          </div>
-
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
-
-            <div className="glass-card-hover p-6 rounded-2xl text-center">
-              <div className="w-12 h-12 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center mx-auto mb-4 text-cyan-400">
-                <CheckCircle2 className="w-6 h-6" />
-              </div>
-              <h3 className="font-heading font-bold text-base text-white mb-2">ATS Verification</h3>
-              <p className="text-slate-400 text-xs leading-relaxed font-sans">
-                Evaluates resume formatting, section detection, and keyword match percentages.
-              </p>
-            </div>
-
-            <div className="glass-card-hover p-6 rounded-2xl text-center">
-              <div className="w-12 h-12 rounded-xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center mx-auto mb-4 text-purple-400">
-                <Target className="w-6 h-6" />
-              </div>
-              <h3 className="font-heading font-bold text-base text-white mb-2">Skill Verification</h3>
-              <p className="text-slate-400 text-xs leading-relaxed font-sans">
-                Cross-checks claimed resume skills against real GitHub repositories and code commits.
-              </p>
-            </div>
-
-            <div className="glass-card-hover p-6 rounded-2xl text-center">
-              <div className="w-12 h-12 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-center mx-auto mb-4 text-blue-400">
-                <BookOpen className="w-6 h-6" />
-              </div>
-              <h3 className="font-heading font-bold text-base text-white mb-2">Gap Roadmap</h3>
-              <p className="text-slate-400 text-xs leading-relaxed font-sans">
-                Generates customized learning milestones and curated resources for missing skills.
-              </p>
-            </div>
-
-            <div className="glass-card-hover p-6 rounded-2xl text-center">
-              <div className="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center mx-auto mb-4 text-emerald-400">
-                <Mail className="w-6 h-6" />
-              </div>
-              <h3 className="font-heading font-bold text-base text-white mb-2">Cover Letter AI</h3>
-              <p className="text-slate-400 text-xs leading-relaxed font-sans">
-                Generates tailored, high-converting cover letters matching target job descriptions.
-              </p>
-            </div>
-
-          </div>
-        </div>
-      </div>
+        </section>
+      </main>
     </div>
   );
 };
