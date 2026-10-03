@@ -112,10 +112,6 @@ async function analyzeCandidate({ resumeBuffer, mimeType, jobDescription, github
   });
 
   const deterministicGaps = candidateProfile.missingSkills;
-  const aiGapMap = new Map(
-    (aiResults.gaps?.skill_gaps || []).map(g => [String(g?.skill || '').toLowerCase(), g])
-  );
-
   const skillGaps = deterministicGaps.map(skill => {
     return {
       skill,
