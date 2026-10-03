@@ -168,18 +168,25 @@ function fallbackGaps(resumeText, jobDescription) {
   };
 }
 
+function extractJobTitle(jobDescription = "") {
+  const text = String(jobDescription || "").trim();
+  if (!text) return "the position";
+  const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+  const titleLine = lines.find(line => /job title|position|role/i.test(line));
+  return titleLine ? titleLine.replace(/^(job title|position|role)\s*[:\-]\s*/i, "").trim() : "the position";
+}
+
 function fallbackCoverLetter(resumeText, jobDescription, candidateName = "Candidate", githubAnalysis = null) {
   const core = fallbackCoreMatch(resumeText, jobDescription);
-  const highlights = core.matched_skills.slice(0, 3);
-  const githubText = githubAnalysis?.username
-    ? ` On GitHub (@${githubAnalysis.username}), I maintain ${githubAnalysis.repoCount || 'multiple'} repositories featuring ${githubAnalysis.languages?.slice(0, 3).join(', ') || 'modern stacks'}.`
-    : '';
-
+  const highlights = (core.matched_skills || []).slice(0, 3);
+  const jobTitle = extractJobTitle(jobDescription);
+  const relevantSkills = highlights.length ? highlights.join(", ") : "the technical skills highlighted in my resume";
+  const githubSentence = githubAnalysis?.username ? ` I also maintain a GitHub profile with ${githubAnalysis.repoCount || "multiple"} repositories, providing additional evidence of my hands-on project work.` : "";
   return {
-    subject_line: `Application for Position - ${candidateName}`,
-    cover_letter: `Dear Hiring Manager,\n\nI am writing to express my enthusiastic interest in joining your engineering team. With verified hands-on experience in ${highlights.join(', ')}, I am confident in my capability to contribute immediate value to your ongoing initiatives.${githubText}\n\nThroughout my career, I have consistently focused on building scalable software solutions, optimizing application performance, and enforcing software craftsmanship. My technical background aligns strongly with the requirements outlined in your job posting.\n\nI welcome the opportunity to discuss how my skill set and code background can support your team's objectives. Thank you for your time and consideration.\n\nSincerely,\n${candidateName}`,
+    subject_line: `Application for ${jobTitle}`,
+    cover_letter: `Dear Hiring Manager,\n\nI am excited to apply for the ${jobTitle} position. I am a computer science student with hands-on project experience in ${relevantSkills}, and I am particularly interested in this opportunity because it aligns with the technical skills described in the role.${githubSentence}\n\nThrough my academic and project experience, I have developed practical experience building software, working with technical tools, and solving implementation problems. These projects have strengthened my ability to learn new technologies, work through technical challenges, and turn requirements into working solutions.\n\nI would welcome the opportunity to discuss how my project experience and technical background could contribute to your team.\n\nThank you for your time and consideration.\n\nSincerely,\n${candidateName}`,
     highlights_used: highlights,
-    tone: "Professional & Impactful"
+    tone: "Professional & Tailored"
   };
 }
 
