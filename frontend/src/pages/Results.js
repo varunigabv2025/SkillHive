@@ -352,7 +352,24 @@ const Results = () => {
                     </span>
                   </div>
 
-                  <p className="text-xs text-slate-300 font-sans mb-3 leading-relaxed">{match.reason}</p>
+                  <div className="space-y-2 text-xs font-mono mb-3">
+                    {match.youCanTeach?.length > 0 && (
+                      <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+                        <span className="text-emerald-400 font-bold block mb-1">You Can Help Them With</span>
+                        <p className="text-slate-300 leading-relaxed">
+                          You can help <span className="text-white font-semibold">{match.name}</span> with {match.youCanTeach.join(', ')}.
+                        </p>
+                      </div>
+                    )}
+                    {match.theyCanTeach?.length > 0 && (
+                      <div className="p-3 rounded-xl bg-cyan-500/10 border border-cyan-500/20">
+                        <span className="text-cyan-400 font-bold block mb-1">They Can Help You With</span>
+                        <p className="text-slate-300 leading-relaxed">
+                          <span className="text-white font-semibold">{match.name}</span> can help you with {match.theyCanTeach.join(', ')}.
+                        </p>
+                      </div>
+                    )}
+                  </div>
 
                   <div className="space-y-2 text-xs font-mono">
                     {match.youCanTeach?.length > 0 && (
