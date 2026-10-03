@@ -371,31 +371,9 @@ const Results = () => {
                     )}
                   </div>
 
-                  <div className="space-y-2 text-xs font-mono">
-                    {match.youCanTeach?.length > 0 && (
-                      <div>
-                        <span className="text-emerald-400 font-bold block mb-1">You Can Mentor Them In:</span>
-                        <div className="flex flex-wrap gap-1">
-                          {match.youCanTeach.map((s, i) => (
-                            <span key={i} className="px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
-                              {s}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {match.theyCanTeach?.length > 0 && (
-                      <div className="mt-2">
-                        <span className="text-cyan-400 font-bold block mb-1">They Can Mentor You In:</span>
-                        <div className="flex flex-wrap gap-1">
-                          {match.theyCanTeach.map((s, i) => (
-                            <span key={i} className="px-2 py-0.5 rounded bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
-                              {s}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
+                  <div className="text-xs font-mono text-slate-400">
+                    {!match.youCanTeach?.length && !match.theyCanTeach?.length && (
+                      <p>No reciprocal skill overlap was found for this match.</p>
                     )}
                   </div>
                 </div>
