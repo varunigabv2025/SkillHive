@@ -171,25 +171,78 @@ function fallbackGaps(resumeText, jobDescription) {
 function extractJobTitle(jobDescription = "") {
   const text = String(jobDescription || "").trim();
   if (!text) return "the position";
+
   const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
-  const titleLine = lines.find(line => /job title|position|role/i.test(line));
-  return titleLine ? titleLine.replace(/^(job title|position|role)\s*[:\-]\s*/i, "").trim() : "the position";
+
+  const explicit = lines.find(line => /^(job\s*title|position|role)\s*[:\-]/i.test(line));
+  if (explicit) {
+    const title = explicit.replace(/^(job\s*title|position|role)\s*[:\-]\s*/i, "").trim();
+    if (title) return title.replace(/\s+position$/i, "").trim();
+  }
+
+  const labeled = lines.find(line => /\b(job\s*title|position|role)\b/i.test(line) && line.length < 120);
+  if (labeled) {
+    const title = labeled.replace(/^(job\s*title|position|role)\s*[:\-]?\s*/i, "").trim();
+    if (title && !/^the position$/i.test(title)) return title.replace(/\s+position$/i, "").trim();
+  }
+
+  const first = lines[0] || "";
+  if (first.length > 3 && first.length < 80 && !/^(job description|about the role|responsibilities|requirements)$/i.test(first)) {
+    return first.replace(/\s+position$/i, "").trim();
+  }
+
+  return "the position";
+}
+
+function extractResumeProjects(resumeText = "") {
+  const text = String(resumeText || "");
+  const lines = text.split(/\r?\n/).map(line => line.replace(/^[-•*]\s*/, "").trim()).filter(Boolean);
+  const start = lines.findIndex(line => /^(projects?|academic projects?|personal projects?)\s*:?$/i.test(line));
+  if (start === -1) return [];
+
+  const stopPattern = /^(experience|education|skills?|certifications?|achievements?|languages?|interests?|references?)\s*:?$/i;
+  const projectLines = [];
+  for (let i = start + 1; i < Math.min(lines.length, start + 30); i++) {
+    if (stopPattern.test(lines[i])) break;
+    if (lines[i].length >= 4) projectLines.push(lines[i]);
+  }
+
+  return projectLines.slice(0, 3);
 }
 
 function fallbackCoverLetter(resumeText, jobDescription, candidateName = "Candidate", githubAnalysis = null) {
   const core = fallbackCoreMatch(resumeText, jobDescription);
   const highlights = (core.matched_skills || []).slice(0, 3);
   const jobTitle = extractJobTitle(jobDescription);
-  const relevantSkills = highlights.length ? highlights.join(", ") : "the technical skills highlighted in my resume";
-  const githubSentence = githubAnalysis?.username ? ` I also maintain a GitHub profile with ${githubAnalysis.repoCount || "multiple"} repositories, providing additional evidence of my hands-on project work.` : "";
+  const relevantSkills = highlights.length
+    ? highlights.join(", ")
+    : "the technical skills highlighted in my resume";
+  const projects = extractResumeProjects(resumeText);
+  const projectSentence = projects.length
+    ? ` My project experience includes work described in my resume such as "${projects[0]}"${projects[1] ? ` and "${projects[1]}"` : ""}, which has strengthened my ability to apply these skills in practical settings.`
+    : " My academic and project work has given me practical experience turning technical requirements into working solutions.";
+  const githubSentence = githubAnalysis?.username
+    ? ` I also maintain GitHub projects under @${githubAnalysis.username}, providing additional evidence of hands-on development.`
+    : "";
+
   return {
     subject_line: `Application for ${jobTitle}`,
-    cover_letter: `Dear Hiring Manager,\n\nI am excited to apply for the ${jobTitle} position. I am a computer science student with hands-on project experience in ${relevantSkills}, and I am particularly interested in this opportunity because it aligns with the technical skills described in the role.${githubSentence}\n\nThrough my academic and project experience, I have developed practical experience building software, working with technical tools, and solving implementation problems. These projects have strengthened my ability to learn new technologies, work through technical challenges, and turn requirements into working solutions.\n\nI would welcome the opportunity to discuss how my project experience and technical background could contribute to your team.\n\nThank you for your time and consideration.\n\nSincerely,\n${candidateName}`,
+    cover_letter: `Dear Hiring Manager,
+
+I am excited to apply for the ${jobTitle} role. I am a computer science student with hands-on experience in ${relevantSkills}. This role interests me because these skills are directly relevant to the technical requirements described in the job posting.
+
+${projectSentence}${githubSentence}
+
+I am particularly interested in contributing to a team where I can apply my existing development experience while continuing to grow in the areas required by the role. I would welcome the opportunity to discuss how my background and project experience could support your team.
+
+Thank you for your time and consideration.
+
+Sincerely,
+${candidateName}`,
     highlights_used: highlights,
     tone: "Professional & Tailored"
   };
 }
-
 function fallbackInterviewPrep(resumeText, jobDescription, candidateName = "Candidate") {
   const core = fallbackCoreMatch(resumeText, jobDescription);
   const matched = core.matched_skills || ["JavaScript", "React", "Node.js"];
