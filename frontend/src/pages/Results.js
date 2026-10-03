@@ -101,7 +101,45 @@ const Results = () => {
   };
 
   const rewrites = result?.rewrites || { rewrites: [] };
-  const gaps = result?.skillGap || result?.roadmap || result?.gaps || { readiness_percentage: 0, gap_summary: '', skill_gaps: [], milestones: [] };
+  const rawGaps = result?.skillGap || result?.roadmap || result?.gaps || {};
+  const roadmapFallbackSkills = coreMatch?.missing_skills || [];
+  const gaps = {
+    ...rawGaps,
+    readiness_percentage: rawGaps.readiness_percentage ?? (
+      (coreMatch?.matched_skills?.length || 0) + roadmapFallbackSkills.length > 0
+        ? Math.round((coreMatch?.matched_skills?.length || 0) /
+            ((coreMatch?.matched_skills?.length || 0) + roadmapFallbackSkills.length) * 100)
+        : 0
+    ),
+    gap_summary: rawGaps.gap_summary || (
+      roadmapFallbackSkills.length
+        ? `Your resume is missing ${roadmapFallbackSkills.join(', ')} for this target role. Use the roadmap below to build evidence for these skills.`
+        : 'No major technology gaps were detected from the listed job requirements.'
+    ),
+    skill_gaps: rawGaps.skill_gaps?.length ? rawGaps.skill_gaps : roadmapFallbackSkills.map(skill => ({
+      skill,
+      priority: 'High',
+      estimated_time: '1-2 weeks',
+      resources: []
+    })),
+    weekly_milestones: rawGaps.weekly_milestones?.length ? rawGaps.weekly_milestones :
+      roadmapFallbackSkills.slice(0, 4).map((skill, index) => ({
+        week: index + 1,
+        title: `Learn and apply ${skill}`,
+        description: `Study ${skill}, complete a focused hands-on exercise, and document the implementation so you can demonstrate the skill in future applications.`
+      })),
+    portfolio_projects: rawGaps.portfolio_projects?.length ? rawGaps.portfolio_projects :
+      roadmapFallbackSkills.slice(0, 3).map(skill => ({
+        title: `${skill} Practical Project`,
+        description: `Build a small project using ${skill} and document the implementation in a README.`,
+        tech_stack: [skill]
+      })),
+    certifications: rawGaps.certifications?.length ? rawGaps.certifications :
+      roadmapFallbackSkills.slice(0, 2).map(skill => ({
+        name: `${skill} Fundamentals / Official Learning Path`,
+        provider: 'Official documentation or recognized training provider'
+      }))
+  };
   const coverLetter = result?.coverLetter || result?.cover_letter || { subject_line: '', cover_letter: '', highlights_used: [], tone: '' };
   const interviewPrep = result?.interviewPrep || result?.interview_prep || { technical_questions: [], coding_questions: [], behavioral_questions: [], project_discussion: [] };
 
