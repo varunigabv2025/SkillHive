@@ -79,7 +79,7 @@ function containsAlias(text, alias) {
   const value = String(alias || '').toLowerCase().trim();
   if (!value) return false;
   const escaped = escapeRegExp(value);
-  const pattern = new RegExp('(^|[^a-z0-9+#.])' + escaped + '([^a-z0-9+#.]|$)', 'i');
+  const pattern = new RegExp('(^|[^a-z0-9])' + escaped + '([^a-z0-9]|$)', 'i');
   return pattern.test(source);
 }
 
