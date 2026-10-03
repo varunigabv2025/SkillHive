@@ -104,34 +104,35 @@ function mergeProfile(resumeAnalysis = {}, githubAnalysis = {}) {
     skill => !verifiedSkillSet.has(normalize(skill))
   );
 
-  // 5. Compute concise, sentence-style resume recommendations.
+  // Keep recommendations short and actionable: maximum 3 grouped sentences.
   const resumeRecommendations = [];
 
-  unverifiedClaims.forEach(skill => {
-    resumeRecommendations.push(
-      `For ${skill}, mention the specific project, feature, or implementation where you used it instead of listing the skill alone.`
-    );
-  });
+  const unverified = [...new Set(unverifiedClaims.map(skill => String(skill).trim()).filter(Boolean))];
+  const githubOnly = [...new Set(
+    githubSkills
+      .filter(skill => !resumeSkills.some(rs => normalize(rs) === normalize(skill)))
+      .map(skill => String(skill).trim())
+      .filter(Boolean)
+  )];
 
-  githubSkills
-    .filter(skill => !resumeSkillMap.has(normalize(skill)))
-    .forEach(skill => {
-      resumeRecommendations.push(
-        `Highlight ${skill} in the relevant project or experience section when your GitHub work provides concrete evidence of using it.`
-      );
-    });
-
-  if (resumeRecommendations.length === 0) {
+  if (unverified.length > 0) {
     resumeRecommendations.push(
-      'Describe your strongest projects with the technology used, what you built, and the problem or requirement you solved.'
-    );
-    resumeRecommendations.push(
-      'Replace generic project descriptions with measurable outcomes such as accuracy, performance, users served, or features delivered whenever those numbers are available.'
-    );
-    resumeRecommendations.push(
-      'Link your most relevant GitHub repositories directly from the corresponding project entries so your technical work is easy to verify.'
+      `Strengthen the resume evidence for ${unverified.slice(0, 4).join(', ')} by linking each skill to the specific project, feature, or implementation where it was actually used.`
     );
   }
+
+  if (githubOnly.length > 0) {
+    resumeRecommendations.push(
+      `Your GitHub work provides evidence of ${githubOnly.slice(0, 4).join(', ')}; surface the strongest examples in the relevant project or experience sections of the resume.`
+    );
+  }
+
+  resumeRecommendations.push(
+    'Keep project descriptions focused on what you built, the technologies you used, and the concrete problem or result you can demonstrate.'
+  );
+
+  const finalResumeRecommendations = [...new Set(resumeRecommendations)].slice(0, 3);
+
 
   // 6. Aggregate Strengths
   const strengths = [];
