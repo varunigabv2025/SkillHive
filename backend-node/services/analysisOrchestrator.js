@@ -94,9 +94,22 @@ async function analyzeCandidate({ resumeBuffer, mimeType, jobDescription, github
     atsAnalysis: aiResults.ats
   });
 
-  // Ensure Core Match & ATS use normalized master skills
-  aiResults.core_match.matched_skills = candidateProfile.matchedSkills;
-  aiResults.core_match.missing_skills = candidateProfile.missingSkills;
+  // Target gaps are resume-vs-JD gaps. GitHub evidence is used for verification,
+  // but should not silently erase a gap from the roadmap.
+  const targetSkills = normalizeSkillList(rawJobSkills);
+  const roadmapGapSkills = normalizeSkillList(
+    (aiResults.gaps?.skill_gaps || [])
+      .map(g => typeof g === 'string' ? g : g?.skill)
+      .filter(Boolean)
+  );
+  const targetGapSet = new Set(roadmapGapSkills.map(skill => skill.toLowerCase()));
+  const targetMatchedSkills = targetSkills.filter(
+    skill => !targetGapSet.has(skill.toLowerCase())
+  );
+
+  // Keep the Overview, ATS, and Career Roadmap consistent with the same gap list.
+  aiResults.core_match.matched_skills = targetMatchedSkills;
+  aiResults.core_match.missing_skills = roadmapGapSkills;
   aiResults.ats.keyword_density = {
     high_match: candidateProfile.matchedSkills,
     partial_match: candidateProfile.partiallyMatchedSkills,
@@ -116,7 +129,7 @@ async function analyzeCandidate({ resumeBuffer, mimeType, jobDescription, github
   // 7. Build a complete roadmap from the master skill gaps.
   // AI output is treated as enrichment; deterministic matching remains authoritative.
   if (aiResults.gaps) {
-    const deterministicGaps = candidateProfile.missingSkills || [];
+    const deterministicGaps = roadmapGapSkills;
     const existingGaps = Array.isArray(aiResults.gaps.skill_gaps) ? aiResults.gaps.skill_gaps : [];
     const findExisting = skill => existingGaps.find(g =>
       String(g?.skill || '').toLowerCase() === String(skill).toLowerCase()
@@ -137,8 +150,8 @@ async function analyzeCandidate({ resumeBuffer, mimeType, jobDescription, github
       };
     });
 
-    aiResults.gaps.readiness_percentage = candidateProfile.jobSkills.length
-      ? Math.round((candidateProfile.matchedSkills.length / candidateProfile.jobSkills.length) * 100)
+    aiResults.gaps.readiness_percentage = targetSkills.length
+      ? Math.round((targetSkills.length - deterministicGaps.length) / targetSkills.length * 100)
       : 0;
 
     if (deterministicGaps.length) {
