@@ -149,42 +149,35 @@ export function mergeProfile(resumeAnalysis = {}, githubAnalysis = {}) {
     }
   });
 
-  // Generate concise, sentence-style resume recommendations.
+  // Keep recommendations short and actionable: maximum 3 grouped sentences.
   const resumeRecommendations = [];
+  const unverified = [...new Set(unverifiedClaims.map(skill => String(skill).trim()).filter(Boolean))];
+  const githubOnly = [...new Set(
+    githubSkills
+      .filter(skill => !resumeSkills.some(rs => String(rs).toLowerCase() === String(skill).toLowerCase()))
+      .map(skill => String(skill).trim())
+      .filter(Boolean)
+  )];
 
-  unverifiedClaims.forEach(skill => {
+  if (unverified.length > 0) {
+    const skills = unverified.slice(0, 4).join(', ');
     resumeRecommendations.push(
-      `For ${skill}, mention the specific project, feature, or implementation where you used it instead of listing the skill alone.`
-    );
-  });
-
-  githubSkills
-    .filter(
-      skill =>
-        !resumeSkills.some(
-          rs => rs.toLowerCase() === skill.toLowerCase()
-        )
-    )
-    .forEach(skill => {
-      resumeRecommendations.push(
-        `Highlight ${skill} in the relevant project or experience section when your GitHub work provides concrete evidence of using it.`
-      );
-    });
-
-  if (resumeRecommendations.length === 0) {
-    resumeRecommendations.push(
-      'Describe your strongest projects with the technology used, what you built, and the problem or requirement you solved.'
-    );
-    resumeRecommendations.push(
-      'Replace generic project descriptions with measurable outcomes such as accuracy, performance, users served, or features delivered whenever those numbers are available.'
-    );
-    resumeRecommendations.push(
-      'Link your most relevant GitHub repositories directly from the corresponding project entries so your technical work is easy to verify.'
+      `Strengthen the resume evidence for ${skills} by linking each skill to the specific project, feature, or implementation where it was actually used.`
     );
   }
 
-  const uniqueRecommendations = [...new Set(resumeRecommendations)];
-  const finalResumeRecommendations = uniqueRecommendations.slice(0, 5);
+  if (githubOnly.length > 0) {
+    const skills = githubOnly.slice(0, 4).join(', ');
+    resumeRecommendations.push(
+      `Your GitHub work provides evidence of ${skills}; surface the strongest examples in the relevant project or experience sections of the resume.`
+    );
+  }
+
+  resumeRecommendations.push(
+    'Keep project descriptions focused on what you built, the technologies you used, and the concrete problem or result you can demonstrate.'
+  );
+
+  const finalResumeRecommendations = [...new Set(resumeRecommendations)].slice(0, 3);
 
   const strengths = [];
   if (verifiedSkills.length > 0) {
