@@ -4,216 +4,173 @@ const { mergeProfile } = require('./profileMerger');
 const { runAllAnalyses } = require('../aiAnalyzer');
 const { calculateTrustScore } = require('../trustScore');
 const { findMatchesForCandidate } = require('../skillMatcher');
-const { normalizeSkillList } = require('./skillNormalizationService');
+const { extractSkills, normalizeSkills, calculateAlignment, calculateAts } = require('./evidenceEngine');
 const { buildCandidateProfile } = require('./matchingEngine');
 
 function extractCandidateName(resumeText) {
   if (!resumeText) return 'Candidate';
-  const lines = resumeText.split('\n');
-  if (lines.length > 0) {
-    const firstLine = lines[0].trim();
-    if (firstLine.length < 50 && !/\d/.test(firstLine)) {
-      return firstLine;
-    }
-  }
-  return 'Candidate';
+  const firstLine = String(resumeText).split('\n')[0] || '';
+  const value = firstLine.trim();
+  return value.length < 50 && !/\d/.test(value) ? value : 'Candidate';
 }
 
 function extractJobTitle(jobDescription) {
-  if (!jobDescription) return 'Position';
-  const lines = String(jobDescription).split(/\r?\n/).map(line => line.trim()).filter(Boolean);
-
+  const lines = String(jobDescription || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean);
   const explicit = lines.find(line => /^(job\s*title|position|role)\s*[:\-]/i.test(line));
-  if (explicit) {
-    return explicit.replace(/^(job\s*title|position|role)\s*[:\-]\s*/i, '').replace(/\s+position$/i, '').trim();
-  }
-
+  if (explicit) return explicit.replace(/^(job\s*title|position|role)\s*[:\-]\s*/i, '').replace(/\s+position$/i, '').trim();
   const first = lines[0] || '';
-  const firstSegment = first.split(',')[0].trim();
-  if (
-    firstSegment.length > 3 &&
-    firstSegment.length < 80 &&
-    /\b(developer|engineer|designer|analyst|scientist|intern|manager|architect|consultant|specialist|administrator|lead)\b/i.test(firstSegment)
-  ) {
-    return firstSegment.replace(/\s+position$/i, '').trim();
-  }
-
-  return first && first.length < 100 ? first.replace(/\s+position$/i, '').trim() : 'Position';
+  const segment = first.split(',')[0].trim();
+  return segment.length >= 3 && segment.length < 80 ? segment.replace(/\s+position$/i, '').trim() : 'Position';
 }
+
+function detectResumeSections(resumeText) {
+  const text = String(resumeText || '').toLowerCase();
+  const sections = [];
+  if (/\beducation\b|academic|degree/.test(text)) sections.push('Education');
+  if (/\bskills?\b|technical skills|technologies|programming/.test(text)) sections.push('Skills');
+  if (/\bprojects?\b|hackathon/.test(text)) sections.push('Projects');
+  if (/\bexperience\b|internship|employment|work experience/.test(text)) sections.push('Experience');
+  if (/certifications?|certificates?/.test(text)) sections.push('Certifications');
+  if (/achievements?|awards?|honors?/.test(text)) sections.push('Achievements');
+  return sections;
+}
+
+function buildDeterministicCore(resumeText, jobDescription) {
+  const resumeSkills = extractSkills(resumeText);
+  const jobSkills = extractSkills(jobDescription);
+  const sections = detectResumeSections(resumeText);
+  const alignment = calculateAlignment({ jobSkills, resumeSkills, sections });
+
+  return {
+    ...alignment,
+    improvement_tips: alignment.missing_skills.length
+      ? ['Address genuine gaps in ' + alignment.missing_skills.join(', ') + ' through hands-on work before claiming them on the resume.']
+      : ['Keep the strongest project evidence visible and easy to verify.'],
+    summary: jobSkills.length
+      ? 'Deterministic matching found ' + alignment.matched_skills.length + ' of ' + jobSkills.length + ' recognized job-description skills in the resume. GitHub evidence is audited separately.'
+      : 'No recognized technical skills were detected in the job description, so no technology match score was inferred.',
+    source: 'deterministic'
+  };
+}
+
 async function analyzeCandidate({ resumeBuffer, mimeType, jobDescription, githubUrl }) {
   const warnings = [];
   const errors = [];
-  let status = 'SUCCESS';
-  let confidence = 95;
-
-  // 1. Resume Text Extraction
   const resumeText = await extractResumeText(resumeBuffer, mimeType);
+
   if (typeof resumeText !== 'string' || !resumeText.trim()) {
     throw new Error('Failed to extract readable text from resume.');
   }
+  if (!String(jobDescription || '').trim()) {
+    throw new Error('Job description is required.');
+  }
 
-  // 2. GitHub Evidence Extraction
   let githubAnalysis = null;
   if (githubUrl && typeof githubUrl === 'string' && githubUrl.trim()) {
     const username = githubUrl.trim().split('/').filter(Boolean).pop();
-    if (username) {
-      try {
-        const ghResult = await analyzeGithubProfile(githubUrl, []);
-        if (ghResult.error) {
-          warnings.push(`GitHub analysis notice: ${ghResult.error}`);
-          githubAnalysis = { username, error: ghResult.error, skills: [], repos: [], verifiedSkills: [] };
-        } else {
-          githubAnalysis = ghResult;
-          (ghResult.warnings || []).forEach(w => warnings.push(w));
-        }
-      } catch (ghErr) {
-        warnings.push(`GitHub API error: ${ghErr.message}`);
-        githubAnalysis = { username, error: ghErr.message, skills: [], repos: [], verifiedSkills: [] };
+    try {
+      const result = await analyzeGithubProfile(githubUrl, []);
+      if (result.error) {
+        warnings.push('GitHub analysis notice: ' + result.error);
+        githubAnalysis = { username, error: result.error, skills: [], repos: [], verifiedSkills: [] };
+      } else {
+        githubAnalysis = result;
+        (result.warnings || []).forEach(w => warnings.push(w));
       }
+    } catch (error) {
+      warnings.push('GitHub API error: ' + error.message);
+      githubAnalysis = { username, error: error.message, skills: [], repos: [], verifiedSkills: [] };
     }
+  } else {
+    warnings.push('No GitHub profile supplied; resume claims cannot be GitHub-verified.');
   }
 
   const candidateName = extractCandidateName(resumeText);
   const jobTitle = extractJobTitle(jobDescription);
 
-  // 3. AI Analysis Suite
+  // AI is enrichment only. It no longer controls truth-sensitive matching.
   const aiResults = await runAllAnalyses(resumeText, jobDescription, candidateName, githubAnalysis);
 
-  // Extract raw skills from data sources
-  const rawResumeSkills = aiResults.core_match?.matched_skills || [];
-  const rawJobSkills = [...(aiResults.core_match?.matched_skills || []), ...(aiResults.core_match?.missing_skills || [])];
-  const rawGithubSkills = githubAnalysis?.skills || [];
+  const rawResumeSkills = extractSkills(resumeText);
+  const rawJobSkills = extractSkills(jobDescription);
+  const rawGithubSkills = normalizeSkills(githubAnalysis?.skills || []);
 
-  // 4. Master Candidate Profile Construction (Single Source of Truth)
   const candidateProfile = buildCandidateProfile({
     rawResumeSkills,
     rawGithubSkills,
     rawJobSkills,
     githubAnalysis,
-    coreMatch: aiResults.core_match,
-    atsAnalysis: aiResults.ats
+    coreMatch: aiResults.core_match
   });
 
-  // Target gaps are resume-vs-JD gaps. GitHub evidence is used for verification,
-  // but should not silently erase a gap from the roadmap.
-  const targetSkills = normalizeSkillList(rawJobSkills);
-  const roadmapGapSkills = normalizeSkillList(
-    (aiResults.gaps?.skill_gaps || [])
-      .map(g => typeof g === 'string' ? g : g?.skill)
-      .filter(Boolean)
-  );
-  const targetGapSet = new Set(roadmapGapSkills.map(skill => skill.toLowerCase()));
-  const targetMatchedSkills = targetSkills.filter(
-    skill => !targetGapSet.has(skill.toLowerCase())
+  const coreMatch = buildDeterministicCore(resumeText, jobDescription);
+  const detectedSections = detectResumeSections(resumeText);
+  const atsAnalysis = calculateAts({
+    jobSkills: rawJobSkills,
+    resumeSkills: rawResumeSkills,
+    detectedSections
+  });
+
+  const deterministicGaps = candidateProfile.missingSkills;
+  const aiGapMap = new Map(
+    (aiResults.gaps?.skill_gaps || []).map(g => [String(g?.skill || '').toLowerCase(), g])
   );
 
-  // Keep the Overview, ATS, and Career Roadmap consistent with the same gap list.
-  aiResults.core_match.matched_skills = targetMatchedSkills;
-  aiResults.core_match.missing_skills = roadmapGapSkills;
-  aiResults.ats.keyword_density = {
-    high_match: candidateProfile.matchedSkills,
-    partial_match: candidateProfile.partiallyMatchedSkills,
-    missing: candidateProfile.missingSkills
+  const skillGaps = deterministicGaps.map(skill => {
+    const aiGap = aiGapMap.get(skill.toLowerCase());
+    return {
+      skill,
+      priority: aiGap?.priority || 'High',
+      estimated_time: aiGap?.estimated_time || '1-2 weeks',
+      resources: Array.isArray(aiGap?.resources) ? aiGap.resources : []
+    };
+  });
+
+  const skillGap = {
+    ...(aiResults.gaps || {}),
+    readiness_percentage: coreMatch.readiness_percentage,
+    gap_summary: deterministicGaps.length
+      ? 'Your resume directly evidences ' + coreMatch.matched_skills.length + ' of ' + rawJobSkills.length + ' recognized job skills. Missing: ' + deterministicGaps.join(', ') + '.'
+      : 'No recognized technical skill gaps were found between the resume and the job description.',
+    skill_gaps: skillGaps,
+    weekly_milestones: deterministicGaps.slice(0, 4).map((skill, index) => ({
+      week: index + 1,
+      title: 'Learn and apply ' + skill,
+      description: 'Build a small hands-on implementation of ' + skill + ' and document what you actually built.'
+    })),
+    milestones: deterministicGaps.slice(0, 4).map((skill, index) => ({
+      week: index + 1,
+      title: 'Learn and apply ' + skill,
+      description: 'Build a small hands-on implementation of ' + skill + ' and document what you actually built.'
+    }))
   };
 
-  // 5. Unified Trust Score Calculation (FIRED WITH VALID rawGithubSkills SOURCE)
-  const trustAnalysis = calculateTrustScore(candidateProfile.matchedSkills, rawGithubSkills, {
-    githubAnalysis,
-    overallScore: aiResults.core_match?.overall_score,
-    atsScore: aiResults.ats?.ats_score
+  const trustAnalysis = calculateTrustScore(candidateProfile.resumeSkills, rawGithubSkills, {
+    githubAnalysis
   });
 
-  // 6. SkillSwap Engine
-  const skillSwapMatches = findMatchesForCandidate(candidateProfile.matchedSkills, candidateProfile.missingSkills, candidateName);
+  const skillSwapMatches = findMatchesForCandidate(
+    candidateProfile.matchedSkills,
+    candidateProfile.missingSkills,
+    candidateName
+  );
 
-  // 7. Build a complete roadmap from the master skill gaps.
-  // AI output is treated as enrichment; deterministic matching remains authoritative.
-  if (aiResults.gaps) {
-    const deterministicGaps = roadmapGapSkills;
-    const existingGaps = Array.isArray(aiResults.gaps.skill_gaps) ? aiResults.gaps.skill_gaps : [];
-    const findExisting = skill => existingGaps.find(g =>
-      String(g?.skill || '').toLowerCase() === String(skill).toLowerCase()
-    );
+  const mergedLegacyProfile = mergeProfile(
+    { core_match: coreMatch, job_title: jobTitle, candidate_name: candidateName },
+    githubAnalysis
+  );
 
-    aiResults.gaps.skill_gaps = deterministicGaps.map(skill => {
-      const aiGap = findExisting(skill);
-      return {
-        skill,
-        priority: aiGap?.priority || 'High',
-        estimated_time: aiGap?.estimated_time || '1-2 weeks',
-        resources: aiGap?.resources?.length
-          ? aiGap.resources
-          : [{
-              name: `${skill} Official Documentation`,
-              url: `https://www.google.com/search?q=${encodeURIComponent(skill + ' official documentation')}`
-            }]
-      };
-    });
-
-    aiResults.gaps.readiness_percentage = targetSkills.length
-      ? Math.round((targetSkills.length - deterministicGaps.length) / targetSkills.length * 100)
-      : 0;
-
-    if (deterministicGaps.length) {
-      aiResults.gaps.gap_summary =
-        `Your resume currently evidences ${candidateProfile.matchedSkills.length} of ${candidateProfile.jobSkills.length} target skills. Focus next on ${deterministicGaps.slice(0, 4).join(', ')}.`;
-
-      aiResults.gaps.weekly_milestones = deterministicGaps.slice(0, 4).map((skill, index) => ({
-        week: index + 1,
-        title: `Learn and apply ${skill}`,
-        description: `Study the core concepts of ${skill}, complete a focused hands-on exercise, and document what you built so the skill can be demonstrated in future applications.`
-      }));
-
-      aiResults.gaps.portfolio_projects = deterministicGaps.slice(0, 3).map(skill => ({
-        title: `${skill} Practical Project`,
-        description: `Build a small end-to-end project using ${skill} to solve a concrete problem. Document the implementation and decisions in the project README.`,
-        tech_stack: [skill]
-      }));
-
-      aiResults.gaps.certifications = deterministicGaps.slice(0, 2).map(skill => ({
-        name: `${skill} Fundamentals / Official Learning Path`,
-        provider: 'Official documentation or recognized training provider'
-      }));
-
-      aiResults.gaps.milestones = aiResults.gaps.weekly_milestones;
-      aiResults.gaps.timeline = `Work through the missing skills in order: ${deterministicGaps.slice(0, 4).join(', ')}.`;
-    } else {
-      aiResults.gaps.gap_summary = 'No major technology gaps were detected from the listed job requirements.';
-      aiResults.gaps.weekly_milestones = [];
-      aiResults.gaps.portfolio_projects = [];
-      aiResults.gaps.certifications = [];
-      aiResults.gaps.milestones = [];
-      aiResults.gaps.timeline = 'Continue strengthening and documenting the project evidence already present in the resume.';
-    }
-  }
-  const mergedLegacyProfile = mergeProfile(aiResults, githubAnalysis);
-
-  // Debug Logging
-  console.log('[DEBUG Orchestrator] GitHub Username:', githubAnalysis?.username);
-  console.log('[DEBUG Orchestrator] Repository Count:', githubAnalysis?.repoCount);
-  console.log('[DEBUG Orchestrator] Repository Names:', githubAnalysis?.repos?.map(r => r.name));
-  console.log('[DEBUG Orchestrator] GitHub Extracted Skills:', rawGithubSkills);
-  console.log('[DEBUG Orchestrator] Resume Extracted Skills:', rawResumeSkills);
-  console.log('[DEBUG Orchestrator] Matched Skills:', candidateProfile.matchedSkills);
-  console.log('[DEBUG Orchestrator] Missing Skills:', candidateProfile.missingSkills);
-  console.log('[DEBUG Orchestrator] Verified Skills:', candidateProfile.verifiedSkills);
-  console.log('[DEBUG Orchestrator] Trust Score Inputs:', { matched: candidateProfile.matchedSkills, github: rawGithubSkills });
-
-  // Return Master CandidateProfile Response Object
   return {
     candidateProfile: {
       ...candidateProfile,
-      resumeRecommendations: mergedLegacyProfile.resumeRecommendations || [
-        'Add measurable outcomes to your strongest projects, such as performance improvements, users served, accuracy achieved, or features implemented.',
-        'Include direct GitHub repository links for your most relevant projects to make your technical experience easier to verify.'
-      ],
-      user: { name: candidateName, title: jobTitle }
+      user: { name: candidateName, title: jobTitle },
+      resumeRecommendations: mergedLegacyProfile.resumeRecommendations || []
     },
     githubAnalysis,
-    atsAnalysis: aiResults.ats || {},
+    atsAnalysis,
     trustAnalysis,
-    skillGap: aiResults.gaps || {},
-    roadmap: aiResults.gaps || {},
+    skillGap,
+    roadmap: skillGap,
     coverLetter: aiResults.cover_letter || {},
     interviewPrep: aiResults.interview_prep || {},
     skillSwap: {
@@ -221,21 +178,24 @@ async function analyzeCandidate({ resumeBuffer, mimeType, jobDescription, github
       unlocked: trustAnalysis.unlocked,
       status: trustAnalysis.unlocked ? 'UNLOCKED' : 'LOCKED'
     },
-    coreMatch: aiResults.core_match || {},
+    coreMatch,
     rewrites: aiResults.rewrites || { rewrites: [] },
     recommendations: mergedLegacyProfile.resumeRecommendations || [],
     metadata: {
-      status,
-      confidence,
+      status: 'SUCCESS',
+      confidence: 100,
       createdAt: new Date().toISOString(),
       jobTitle,
       candidateName,
       warnings,
-      errors
+      errors,
+      verification: {
+        matchingSource: 'deterministic',
+        githubVerificationSource: 'repository evidence',
+        aiRole: 'enrichment only'
+      }
     }
   };
 }
 
-module.exports = {
-  analyzeCandidate
-};
+module.exports = { analyzeCandidate };
