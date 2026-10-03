@@ -7,7 +7,7 @@
 @layer base {
   body {
     @apply bg-space-950 text-slate-100 font-sans selection:bg-cyan-500/30 selection:text-cyan-200 overflow-x-hidden;
-    background-color: #030611;
+    background-color: #07090f;
   }
 }
 
