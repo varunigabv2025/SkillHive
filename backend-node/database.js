@@ -2,7 +2,7 @@ const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const bcrypt = require('bcryptjs');
 
-const dbPath = path.join(__dirname, 'resume_analyses.db');
+const dbPath = process.env.DB_PATH || path.join(__dirname, 'resume_analyses.db');
 
 const db = new sqlite3.Database(dbPath, (err) => {
   if (err) {
@@ -130,8 +130,9 @@ async function seedAdmin() {
   const admin = await get("SELECT id FROM users WHERE role = 'admin' ORDER BY id LIMIT 1");
 
   if (admin) {
-    await run('UPDATE users SET name = ?, username = ?, password_hash = ? WHERE id = ?', [username, username, hash, admin.id]);
-    console.log(`Admin account synced from .env (${username})`);
+    // Never overwrite an existing admin password on every restart.
+    // This prevents a redeploy from unexpectedly invalidating the owner's login.
+    console.log(`Admin account already exists (${username}); existing credentials preserved.`);
   } else {
     await run(
       'INSERT INTO users (name, username, password_hash, role) VALUES (?, ?, ?, ?)',
