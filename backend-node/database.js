@@ -88,6 +88,91 @@ async function ensureInitialized() {
   return initPromise;
 }
 
+function translateSql(sql) {
+  const parts = sql.split('?');
+  return parts.map((part, index) => (
+    index < parts.length - 1 ? part + '
+  ensureInitialized()
+    .then(() => {
+      const isInsert = /^\s*INSERT\s+/i.test(sql);
+      const translatedSql = translateSql(sql);
+      const query = isInsert && !/\bRETURNING\b/i.test(translatedSql)
+        ? `${translatedSql.trim()} RETURNING id`
+        : translatedSql;
+
+      return pool.query(query, params);
+    })
+    .then(result => {
+      const row = result.rows?.[0];
+      const context = {
+        lastID: row?.id ?? null,
+        changes: result.rowCount || 0
+      };
+      if (callback) callback.call(context, null);
+      return context;
+    })
+    .catch(err => {
+      console.error('Database run error:', err);
+      if (callback) callback.call({}, err);
+    });
+}
+function all(sql, params = [], callback) {
+  ensureInitialized()
+    .then(() => pool.query(translateSql(sql), params))
+    .then(result => callback(null, result.rows))
+    .catch(err => {
+      console.error('Database all error:', err);
+      callback(err);
+    });
+}
+
+function get(sql, params = [], callback) {
+  ensureInitialized()
+    .then(() => pool.query(sql, params))
+    .then(result => callback(null, result.rows[0]))
+    .catch(err => {
+      console.error('Database get error:', err);
+      callback(err);
+    });
+}
+
+async function seedAdmin() {
+  const username = (process.env.ADMIN_USERNAME || '').trim();
+  const password = process.env.ADMIN_PASSWORD || '';
+
+  if (!username || !password) {
+    console.warn('ADMIN_USERNAME / ADMIN_PASSWORD not set: no admin account will be created.');
+    return;
+  }
+
+  const existing = await pool.query(
+    "SELECT id FROM users WHERE role = 'admin' ORDER BY id LIMIT 1"
+  );
+
+  if (existing.rows.length > 0) {
+    console.log('Admin account already exists; existing credentials preserved.');
+    return;
+  }
+
+  const hash = await bcrypt.hash(password, 10);
+  await pool.query(
+    'INSERT INTO users (name, username, password_hash, role) VALUES ($1, $2, $3, $4)',
+    [username, username, hash, 'admin']
+  );
+  console.log(`Admin account created (${username})`);
+}
+
+module.exports = {
+  run,
+  all,
+  get,
+  pool,
+  ready: ensureInitialized()
+};
+ + (index + 1) : part
+  )).join('');
+}
+
 function run(sql, params = [], callback) {
   ensureInitialized()
     .then(() => {
