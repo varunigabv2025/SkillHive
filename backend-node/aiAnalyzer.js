@@ -365,6 +365,7 @@ function validateRewrites(result, resumeText) {
     const improved = item.improved.trim();
 
     if (original.length < 20 || improved.length < 20) return false;
+    if (original === improved) return false;
     if (blocked.test(original)) return false;
     if (!sourceLower.includes(original.toLowerCase().slice(0, Math.min(80, original.length)))) return false;
 
