@@ -15,6 +15,7 @@ export const AuthProvider = ({ children }) => {
     try {
       localStorage.removeItem(TOKEN_KEY);
       sessionStorage.removeItem('analysisResult');
+      sessionStorage.removeItem('selectedAnalysisId');
     } catch (e) {}
     setUser(null);
   }, []);
