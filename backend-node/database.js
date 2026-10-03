@@ -1,23 +1,42 @@
-const sqlite3 = require('sqlite3').verbose();
-const path = require('path');
+require('dotenv').config();
+
+const { Pool } = require('pg');
 const bcrypt = require('bcryptjs');
 
-const dbPath = process.env.DB_PATH || path.join(__dirname, 'resume_analyses.db');
+const connectionString = process.env.DATABASE_URL;
 
-const db = new sqlite3.Database(dbPath, (err) => {
-  if (err) {
-    console.error('Error opening database:', err);
-  } else {
-    console.log('Connected to SQLite database');
-    initDb();
-  }
+if (!connectionString) {
+  console.error('DATABASE_URL is not set. Configure Render PostgreSQL DATABASE_URL before starting the backend.');
+}
+
+const pool = new Pool({
+  connectionString,
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+  max: 5,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 10000
 });
 
-function initDb() {
-  db.run(`
+let initPromise;
+
+async function initializeDatabase() {
+  if (!connectionString) throw new Error('DATABASE_URL is required');
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS users (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      username TEXT NOT NULL UNIQUE,
+      password_hash TEXT NOT NULL,
+      role TEXT NOT NULL DEFAULT 'user',
+      created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS resume_analyses (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      id SERIAL PRIMARY KEY,
+      created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
       job_title TEXT,
       job_description TEXT,
       resume_text TEXT,
@@ -46,100 +65,102 @@ function initDb() {
       tone TEXT,
       trust_score TEXT,
       skill_swap TEXT,
-      interview_prep TEXT
-    )
-  `, (err) => {
-    if (err) {
-      console.error('Error creating table:', err);
-    }
-  });
-
-  // Ensure columns exist on existing databases
-  db.run(`ALTER TABLE resume_analyses ADD COLUMN trust_score TEXT`, () => {});
-  db.run(`ALTER TABLE resume_analyses ADD COLUMN skill_swap TEXT`, () => {});
-  db.run(`ALTER TABLE resume_analyses ADD COLUMN interview_prep TEXT`, () => {});
-  db.run(`ALTER TABLE resume_analyses ADD COLUMN user_id INTEGER`, () => {});
-
-  initUsers().then(seedAdmin).catch(err => console.error('Error preparing users table:', err));
-}
-
-const run = (sql, params = []) => new Promise((resolve, reject) =>
-  db.run(sql, params, function (err) { return err ? reject(err) : resolve(this); }));
-const all = (sql, params = []) => new Promise((resolve, reject) =>
-  db.all(sql, params, (err, rows) => (err ? reject(err) : resolve(rows))));
-const get = (sql, params = []) => new Promise((resolve, reject) =>
-  db.get(sql, params, (err, row) => (err ? reject(err) : resolve(row))));
-
-async function initUsers() {
-  const columns = await all('PRAGMA table_info(users)');
-
-  if (columns.length === 0) {
-    await run(`
-      CREATE TABLE users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
-        username TEXT NOT NULL UNIQUE COLLATE NOCASE,
-        password_hash TEXT NOT NULL,
-        role TEXT NOT NULL DEFAULT 'user',
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-    return;
-  }
-
-  if (columns.some(c => c.name === 'username')) return;
-
-  // One-time migration from the email-based table: keep ids so existing analyses stay linked.
-  console.log('Migrating users table from email to username login...');
-  const oldUsers = await all('SELECT * FROM users');
-  await run('ALTER TABLE users RENAME TO users_old');
-  await run(`
-    CREATE TABLE users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
-      username TEXT NOT NULL UNIQUE COLLATE NOCASE,
-      password_hash TEXT NOT NULL,
-      role TEXT NOT NULL DEFAULT 'user',
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      interview_prep TEXT,
+      user_id INTEGER REFERENCES users(id) ON DELETE SET NULL
     )
   `);
 
-  const taken = new Set();
-  for (const u of oldUsers) {
-    const base = String(u.email || '').split('@')[0].replace(/[^A-Za-z0-9._-]/g, '') || 'user';
-    let username = base;
-    for (let n = 2; taken.has(username.toLowerCase()); n++) username = `${base}${n}`;
-    taken.add(username.toLowerCase());
-    await run(
-      'INSERT INTO users (id, name, username, password_hash, role, created_at) VALUES (?, ?, ?, ?, ?, ?)',
-      [u.id, username, username, u.password_hash, u.role, u.created_at]
-    );
+  // Add ownership to databases created before the user-isolation feature.
+  await pool.query('ALTER TABLE resume_analyses ADD COLUMN IF NOT EXISTS user_id INTEGER');
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_resume_analyses_user_id ON resume_analyses(user_id)');
+
+  await seedAdmin();
+  console.log('Connected to PostgreSQL and initialized SkillHive database.');
+}
+
+async function ensureInitialized() {
+  if (!initPromise) {
+    initPromise = initializeDatabase().catch(err => {
+      initPromise = null;
+      throw err;
+    });
   }
-  await run('DROP TABLE users_old');
+  return initPromise;
+}
+
+function run(sql, params = [], callback) {
+  ensureInitialized()
+    .then(() => {
+      const isInsert = /^\\s*INSERT\\s+/i.test(sql) && !/\\bRETURNING\\b/i.test(sql);
+      const query = isInsert ? `${sql.trim()} RETURNING id` : sql;
+
+      return pool.query(query, params);
+    })
+    .then(result => {
+      const row = result.rows?.[0];
+      const context = {
+        lastID: row?.id ?? null,
+        changes: result.rowCount || 0
+      };
+      if (callback) callback.call(context, null);
+      return context;
+    })
+    .catch(err => {
+      console.error('Database run error:', err);
+      if (callback) callback.call({}, err);
+    });
+}
+
+function all(sql, params = [], callback) {
+  ensureInitialized()
+    .then(() => pool.query(sql, params))
+    .then(result => callback(null, result.rows))
+    .catch(err => {
+      console.error('Database all error:', err);
+      callback(err);
+    });
+}
+
+function get(sql, params = [], callback) {
+  ensureInitialized()
+    .then(() => pool.query(sql, params))
+    .then(result => callback(null, result.rows[0]))
+    .catch(err => {
+      console.error('Database get error:', err);
+      callback(err);
+    });
 }
 
 async function seedAdmin() {
   const username = (process.env.ADMIN_USERNAME || '').trim();
   const password = process.env.ADMIN_PASSWORD || '';
+
   if (!username || !password) {
     console.warn('ADMIN_USERNAME / ADMIN_PASSWORD not set: no admin account will be created.');
     return;
   }
 
-  const hash = bcrypt.hashSync(password, 10);
-  const admin = await get("SELECT id FROM users WHERE role = 'admin' ORDER BY id LIMIT 1");
+  const existing = await pool.query(
+    "SELECT id FROM users WHERE role = 'admin' ORDER BY id LIMIT 1"
+  );
 
-  if (admin) {
-    // Never overwrite an existing admin password on every restart.
-    // This prevents a redeploy from unexpectedly invalidating the owner's login.
-    console.log(`Admin account already exists (${username}); existing credentials preserved.`);
-  } else {
-    await run(
-      'INSERT INTO users (name, username, password_hash, role) VALUES (?, ?, ?, ?)',
-      [username, username, hash, 'admin']
-    );
-    console.log(`Admin account created (${username})`);
+  if (existing.rows.length > 0) {
+    console.log('Admin account already exists; existing credentials preserved.');
+    return;
   }
+
+  const hash = await bcrypt.hash(password, 10);
+  await pool.query(
+    'INSERT INTO users (name, username, password_hash, role) VALUES ($1, $2, $3, $4)',
+    [username, username, hash, 'admin']
+  );
+  console.log(`Admin account created (${username})`);
 }
 
-module.exports = db;
+module.exports = {
+  run,
+  all,
+  get,
+  pool,
+  ready: ensureInitialized()
+};
