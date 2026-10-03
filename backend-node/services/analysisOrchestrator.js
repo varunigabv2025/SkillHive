@@ -156,7 +156,7 @@ async function analyzeCandidate({ resumeBuffer, mimeType, jobDescription, github
   );
 
   const mergedLegacyProfile = mergeProfile(
-    { core_match: coreMatch, job_title: jobTitle, candidate_name: candidateName },
+    { core_match: coreMatch, resume_skills: rawResumeSkills, job_title: jobTitle, candidate_name: candidateName },
     githubAnalysis
   );
 
