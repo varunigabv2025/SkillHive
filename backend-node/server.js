@@ -116,7 +116,11 @@ app.post('/api/analyze', requireAuth, upload.single('resume_file'), async (req, 
     ];
     
     db.run(insertQuery, values, function(err) {
-      if (!err && this.lastID) {
+      if (err) {
+        console.error('Failed to save analysis:', err);
+        return res.status(500).json({ error: 'Analysis completed but could not be saved. Please try again.' });
+      }
+      if (this.lastID) {
         unifiedResult.id = this.lastID;
       }
       console.log("UNIFIED SINGLE SOURCE OF TRUTH ANALYSIS RESPONSE SENT.");
