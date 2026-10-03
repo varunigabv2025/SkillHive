@@ -359,38 +359,44 @@ async function analyzeGaps(resumeText, jobDescription) {
 async function generateCoverLetter(resumeText, jobDescription, candidateName = "Candidate", githubAnalysis = null) {
   try {
     const generated = await callAI(
-      `You are an expert application writer. Create a natural, specific cover letter from the candidate's resume for the exact job description.
-Rules:
-1. The resume is the source of truth. Never invent employers, internships, achievements, metrics, certifications, technologies, responsibilities, or experience.
-2. Identify and clean the exact target role from the job description.
-3. Use 2-3 concrete facts from the resume, preferably named projects and actual implementation details.
-4. Explain how each selected project or experience connects to the job requirements; do not merely list technologies.
-5. Never paste raw resume lines verbatim.
-6. Avoid generic filler and the phrase "I am excited to apply".
-7. Do not use "throughout my career" for a student or early-career candidate.
-8. Write 180-260 words in 4 short paragraphs.
-9. Return ONLY valid JSON: {"subject_line":"","cover_letter":"","highlights_used":[],"tone":"Professional & Tailored"}`,
+      `Write a polished, truthful cover letter for the exact role in the job description using only evidence from the resume.
+
+STRICT RULES:
+1. The resume is the only source of truth. Never invent employers, internships, achievements, metrics, certifications, responsibilities, technologies, or project details.
+2. Identify the exact job title from the job description. Do not copy the entire job-description sentence as the title.
+3. Use 2 or 3 REAL projects or experiences from the resume that are relevant to the role.
+4. IMPORTANT: Never attach a technology to a project unless the resume explicitly associates that technology with that project. Keep project-specific technologies separate from general skills.
+5. Convert project details into natural prose. Do NOT copy resume bullet points verbatim.
+6. Explain what was built, what the candidate implemented, and why it is relevant to the target role.
+7. Do not simply list technologies. Connect technologies to verified project work.
+8. Avoid generic filler such as "I am excited to apply", "throughout my career", "contribute immediate value", or "technical background could support your team".
+9. For a student/early-career candidate, emphasize projects and academic/personal development rather than implying professional employment.
+10. Write 180-260 words in 4 concise paragraphs.
+11. Do not mention GitHub unless it adds meaningful evidence.
+12. End with "Sincerely," followed by the candidate name.
+13. Return ONLY valid JSON:
+{"subject_line":"","cover_letter":"","highlights_used":[],"tone":"Professional & Tailored"}`,
       `CANDIDATE: ${candidateName}\nRESUME:\n${resumeText}\nJOB DESCRIPTION:\n${jobDescription}`
     );
 
-    const letter = String(generated?.cover_letter || '');
+    const letter = String(generated?.cover_letter || "");
     const genericSignals = [
       /I am excited to apply/i,
       /throughout my career/i,
       /contribute immediate value/i,
-      /technical background could support your team/i,
-      /turning technical requirements into working solutions/i
+      /technical background could support your team/i
     ];
 
     const projects = extractResumeProjects(resumeText);
-    const projectEvidence = projects
-      .map(project => String(project.title || '').toLowerCase().replace(/[^a-z0-9 ]/g, ' ').trim())
+    const projectTitles = projects
+      .map(project => String(project.title || "").toLowerCase().replace(/[^a-z0-9 ]/g, " ").trim())
       .filter(Boolean);
 
-    const mentionsProject = projectEvidence.length === 0 || projectEvidence.some(title => {
-      const words = title.split(/\s+/).filter(Boolean).slice(0, 3);
-      return words.length > 0 && words.every(word => letter.toLowerCase().includes(word));
-    });
+    const mentionsProject = projectTitles.length === 0 ||
+      projectTitles.some(title => {
+        const words = title.split(/\s+/).filter(Boolean).slice(0, 3);
+        return words.length && words.every(word => letter.toLowerCase().includes(word));
+      });
 
     const wordCount = letter.split(/\s+/).filter(Boolean).length;
 
@@ -401,7 +407,7 @@ Rules:
       wordCount < 150 ||
       wordCount > 320
     ) {
-      throw new Error('Generated cover letter failed specificity checks; using project-specific fallback.');
+      throw new Error("Generated cover letter failed quality checks.");
     }
 
     return generated;
@@ -412,48 +418,43 @@ Rules:
 
 function fallbackCoverLetter(resumeText, jobDescription, candidateName = "Candidate", githubAnalysis = null) {
   const core = fallbackCoreMatch(resumeText, jobDescription);
-  const highlights = (core.matched_skills || []).slice(0, 4);
   const jobTitle = extractJobTitle(jobDescription);
   const projects = extractResumeProjects(resumeText);
+  const matched = (core.matched_skills || []).slice(0, 4);
+
+  const relevantSkills = matched.length
+    ? matched.slice(0, 3).join(", ")
+    : "the technical skills demonstrated in my projects";
 
   const projectOne = projects[0];
   const projectTwo = projects[1];
 
-  const skillPhrase = highlights.length
-    ? highlights.slice(0, 3).join(", ")
-    : "the technical skills demonstrated in my projects";
+  const firstProject = projectOne
+    ? `One relevant example is my ${projectOne.title} project. ${projectOne.details ? projectOne.details.replace(/^[.!?]+/, "").trim() + (/[.!?]$/.test(projectOne.details.trim()) ? "" : ".") : "This project gave me practical experience building and implementing a complete solution."}`
+    : `My project work has given me practical experience applying ${relevantSkills} to build complete software solutions.`;
 
-  const projectParagraph = projectOne
-    ? `A strong example is my ${projectOne.title} project${projectOne.details ? `, where I ${projectOne.details.charAt(0).toLowerCase() + projectOne.details.slice(1)}` : ""}. This experience gave me practical exposure to ${skillPhrase} and to building a complete solution rather than only working with individual technologies.`
-    : `My academic and project work has given me practical experience applying ${skillPhrase} to build working software and solve concrete technical problems.`;
-
-  const secondParagraph = projectTwo
-    ? `I have also worked on ${projectTwo.title}${projectTwo.details ? `, involving ${projectTwo.details.charAt(0).toLowerCase() + projectTwo.details.slice(1)}` : ""}. These projects have strengthened my ability to understand requirements, implement features, and work across different parts of a software system.`
-    : `My broader project work has also required me to connect frontend development, backend logic, APIs, and data handling, giving me experience working through a feature from implementation to completion.`;
-
-  const githubSentence = githubAnalysis?.username
-    ? ` My GitHub profile (@${githubAnalysis.username}) also provides public evidence of this hands-on work.`
-    : "";
+  const secondProject = projectTwo
+    ? `I also worked on ${projectTwo.title}. ${projectTwo.details ? projectTwo.details.replace(/^[.!?]+/, "").trim() + (/[.!?]$/.test(projectTwo.details.trim()) ? "" : ".") : "This work strengthened my ability to implement features and solve technical problems."}`
+    : `My broader development work has strengthened my ability to understand requirements, implement features, and work across different parts of an application.`;
 
   return {
     subject_line: `Application for ${jobTitle}`,
     cover_letter: `Dear Hiring Manager,
 
-The ${jobTitle} opportunity interests me because it combines the kind of software development work I have been building through my academic and personal projects. My background includes hands-on work with ${skillPhrase}, with a focus on turning requirements into functional applications.
+The ${jobTitle} opportunity aligns with the kind of software development work I have been building through my academic and personal projects. My experience includes ${relevantSkills}, with a focus on turning requirements into functional applications.
 
-${projectParagraph}
+${firstProject}
 
-${secondParagraph}${githubSentence}
+${secondProject}
 
-I would value the opportunity to bring this project-based experience to your team while continuing to develop the skills required for the role. Thank you for considering my application. I would be glad to discuss the projects and technical decisions behind my work.
+I would welcome the opportunity to bring this project-based experience to your team and continue developing as a software developer. Thank you for considering my application.
 
 Sincerely,
 ${candidateName}`,
-    highlights_used: highlights,
+    highlights_used: matched,
     tone: "Professional & Tailored"
   };
 }
-
 
 function fallbackInterviewPrep(resumeText, jobDescription, candidateName = "Candidate") {
   const core = fallbackCoreMatch(resumeText, jobDescription);
