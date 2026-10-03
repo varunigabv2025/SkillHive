@@ -208,46 +208,88 @@ function extractJobTitle(jobDescription = "") {
 
 function extractResumeProjects(resumeText = "") {
   const text = String(resumeText || "");
-  const lines = text.split(/\r?\n/).map(line => line.replace(/^[-•*]\s*/, "").trim()).filter(Boolean);
+  const lines = text
+    .split(/\r?\n/)
+    .map(line => line.replace(/^[-•*]\s*/, "").trim())
+    .filter(Boolean);
+
   const start = lines.findIndex(line => /^(projects?|academic projects?|personal projects?)\s*:?$/i.test(line));
   if (start === -1) return [];
 
-  const stopPattern = /^(experience|education|skills?|certifications?|achievements?|languages?|interests?|references?)\s*:?$/i;
-  const projectLines = [];
-  for (let i = start + 1; i < Math.min(lines.length, start + 30); i++) {
+  const stopPattern = /^(experience|education|skills?|certifications?|achievements?|languages?|interests?|references?|contact|summary|objective)\s*:?$/i;
+  const projects = [];
+
+  for (let i = start + 1; i < Math.min(lines.length, start + 45); i++) {
     if (stopPattern.test(lines[i])) break;
-    if (lines[i].length >= 4) projectLines.push(lines[i]);
+
+    const line = lines[i];
+    if (line.length < 4) continue;
+
+    // Project headings are usually short and do not end with sentence punctuation.
+    if (
+      line.length <= 90 &&
+      !/[.!?]$/.test(line) &&
+      !/^https?:\/\//i.test(line) &&
+      !/^(developed|built|created|implemented|designed|used|worked|responsible|integrated|deployed|implemented)\b/i.test(line)
+    ) {
+      projects.push({
+        title: line.replace(/\s*[|–—-]\s*.*$/, "").trim(),
+        details: lines.slice(i + 1, Math.min(i + 4, lines.length))
+          .filter(x => !stopPattern.test(x))
+          .join(" ")
+          .slice(0, 280)
+      });
+      if (projects.length >= 3) break;
+    }
   }
 
-  return projectLines.slice(0, 3);
-}
+  // Fallback for resumes whose project headings are not clearly separated.
+  if (projects.length === 0) {
+    const projectLines = [];
+    for (let i = start + 1; i < Math.min(lines.length, start + 30); i++) {
+      if (stopPattern.test(lines[i])) break;
+      if (lines[i].length >= 4) projectLines.push(lines[i]);
+    }
+    return projectLines.slice(0, 3).map(line => ({ title: line.slice(0, 90), details: line }));
+  }
 
-function fallbackCoverLetter(resumeText, jobDescription, candidateName = "Candidate", githubAnalysis = null) {
+  return projects;
+}function fallbackCoverLetter(resumeText, jobDescription, candidateName = "Candidate", githubAnalysis = null) {
   const core = fallbackCoreMatch(resumeText, jobDescription);
-  const highlights = (core.matched_skills || []).slice(0, 3);
+  const highlights = (core.matched_skills || []).slice(0, 4);
   const jobTitle = extractJobTitle(jobDescription);
-  const relevantSkills = highlights.length
-    ? highlights.join(", ")
-    : "the technical skills highlighted in my resume";
   const projects = extractResumeProjects(resumeText);
-  const projectSentence = projects.length
-    ? ` My project experience includes work described in my resume such as "${projects[0]}"${projects[1] ? ` and "${projects[1]}"` : ""}, which has strengthened my ability to apply these skills in practical settings.`
-    : " My academic and project work has given me practical experience turning technical requirements into working solutions.";
+
+  const projectOne = projects[0];
+  const projectTwo = projects[1];
+
+  const skillPhrase = highlights.length
+    ? highlights.slice(0, 3).join(", ")
+    : "the technical skills demonstrated in my projects";
+
+  const projectParagraph = projectOne
+    ? `A strong example is my ${projectOne.title} project${projectOne.details ? `, where I ${projectOne.details.charAt(0).toLowerCase() + projectOne.details.slice(1)}` : ""}. This experience gave me practical exposure to ${skillPhrase} and to building a complete solution rather than only working with individual technologies.`
+    : `My academic and project work has given me practical experience applying ${skillPhrase} to build working software and solve concrete technical problems.`;
+
+  const secondParagraph = projectTwo
+    ? `I have also worked on ${projectTwo.title}${projectTwo.details ? `, involving ${projectTwo.details.charAt(0).toLowerCase() + projectTwo.details.slice(1)}` : ""}. These projects have strengthened my ability to understand requirements, implement features, and work across different parts of a software system.`
+    : `My broader project work has also required me to connect frontend development, backend logic, APIs, and data handling, giving me experience working through a feature from implementation to completion.`;
+
   const githubSentence = githubAnalysis?.username
-    ? ` I also maintain GitHub projects under @${githubAnalysis.username}, providing additional evidence of hands-on development.`
+    ? ` My GitHub profile (@${githubAnalysis.username}) also provides public evidence of this hands-on work.`
     : "";
 
   return {
     subject_line: `Application for ${jobTitle}`,
     cover_letter: `Dear Hiring Manager,
 
-I am excited to apply for the ${jobTitle} role. I am a computer science student with hands-on experience in ${relevantSkills}. This role interests me because these skills are directly relevant to the technical requirements described in the job posting.
+The ${jobTitle} opportunity interests me because it combines the kind of software development work I have been building through my academic and personal projects. My background includes hands-on work with ${skillPhrase}, with a focus on turning requirements into functional applications.
 
-${projectSentence}${githubSentence}
+${projectParagraph}
 
-I am particularly interested in contributing to a team where I can apply my existing development experience while continuing to grow in the areas required by the role. I would welcome the opportunity to discuss how my background and project experience could support your team.
+${secondParagraph}${githubSentence}
 
-Thank you for your time and consideration.
+I would value the opportunity to bring this project-based experience to your team while continuing to develop the skills required for the role. Thank you for considering my application. I would be glad to discuss the projects and technical decisions behind my work.
 
 Sincerely,
 ${candidateName}`,
@@ -255,211 +297,3 @@ ${candidateName}`,
     tone: "Professional & Tailored"
   };
 }
-function fallbackInterviewPrep(resumeText, jobDescription, candidateName = "Candidate") {
-  const core = fallbackCoreMatch(resumeText, jobDescription);
-  const matched = core.matched_skills || ["JavaScript", "React", "Node.js"];
-  const missing = core.missing_skills || ["Docker", "AWS"];
-
-  return {
-    technical_questions: [
-      {
-        question: `How have you structured production architectures using ${matched[0] || 'JavaScript'}?`,
-        answer: `Explain your experience with ${matched[0] || 'JavaScript'}, detailing architectural patterns, state management, and memory/latency optimizations.`,
-        topic: matched[0] || 'Core Stack'
-      },
-      {
-        question: `How will you bridge your skill gap in ${missing[0] || 'Docker'} when joining this project?`,
-        answer: `Demonstrate proactive learning by explaining container concepts, image optimization, and local orchestration workflows.`,
-        topic: missing[0] || 'Skill Gap'
-      }
-    ],
-    coding_questions: [
-      {
-        question: `Design and implement an in-memory Cache with TTL eviction or a Rate Limiter middleware.`,
-        solution_approach: `Utilize a HashMap paired with a Doubly Linked List (LRU) or Sliding Window Counter to achieve O(1) lookup and eviction.`,
-        complexity: "O(1) Time, O(N) Space"
-      }
-    ],
-    behavioral_questions: [
-      {
-        question: `Describe a situation where a project deadline was at risk and how you responded.`,
-        star_framework_guide: `Situation: Imminent release deadline. Task: Unblock critical dependencies. Action: Prioritized core MVP requirements and led pair-programming sessions. Result: On-time delivery with zero critical bugs.`
-      }
-    ],
-    project_discussion: [
-      {
-        question: `Walk through the system design of a major project listed on your resume or GitHub.`,
-        talking_points: `Focus on component boundaries, API design (REST/GraphQL), database indexing strategy, and failure handling.`
-      }
-    ]
-  };
-}
-
-const isRealKey = (key) => key && !key.includes('your_');
-
-async function requestCompletion(prompt) {
-  // Gemma has no system role, so instructions go in the user turn.
-  if (isRealKey(GOOGLE_API_KEY)) {
-    let response;
-    for (let attempt = 0; ; attempt++) {
-      try {
-        response = await axios.post(
-          `https://generativelanguage.googleapis.com/v1beta/models/${GEMMA_MODEL}:generateContent`,
-          {
-            contents: [{ role: 'user', parts: [{ text: prompt }] }],
-            generationConfig: { temperature: 0.3 }
-          },
-          {
-            headers: { 'x-goog-api-key': GOOGLE_API_KEY, 'Content-Type': 'application/json' },
-            timeout: 120000
-          }
-        );
-        break;
-      } catch (error) {
-        const status = error.response?.status;
-        const retryable = status === 429 || status >= 500;
-        if (!retryable || attempt >= 2) throw error;
-        await new Promise(resolve => setTimeout(resolve, 1500 * (attempt + 1)));
-      }
-    }
-    // Gemma 4 emits its reasoning as separate parts flagged thought:true; only the final answer is wanted.
-    const parts = response.data.candidates?.[0]?.content?.parts || [];
-    return parts.filter(p => !p.thought).map(p => p.text || '').join('');
-  }
-
-  if (isRealKey(OPENROUTER_API_KEY)) {
-    const response = await axios.post(
-      'https://openrouter.ai/api/v1/chat/completions',
-      { model: AI_MODEL, messages: [{ role: 'user', content: prompt }], temperature: 0.3 },
-      {
-        headers: { Authorization: `Bearer ${OPENROUTER_API_KEY}`, 'Content-Type': 'application/json' },
-        timeout: 60000
-      }
-    );
-    return response.data.choices[0].message.content || '';
-  }
-
-  throw new Error('No GOOGLE_API_KEY or OPENROUTER_API_KEY configured');
-}
-
-async function callAI(systemPrompt, userPrompt) {
-  try {
-    let text = (await requestCompletion(`${systemPrompt}\n\n${userPrompt}`)).trim();
-    text = text.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '').trim();
-
-    const start = text.indexOf('{');
-    const end = text.lastIndexOf('}');
-    if (start === -1 || end === -1) throw new Error('No JSON found in AI response');
-
-    return JSON.parse(text.substring(start, end + 1));
-  } catch (error) {
-    const detail = error.response?.data?.error?.message || error.message;
-    console.warn('AI call failed, utilizing local NLP analysis:', detail);
-    throw error;
-  }
-}
-
-async function analyzeCoreMatch(resumeText, jobDescription) {
-  try {
-    return await callAI(
-      `You are an expert resume evaluator. Compare resume against job description. ALL SCORES MUST BE WHOLE NUMBERS (0-100). Return ONLY JSON: {"overall_score": 0, "section_scores": {"skills": 0, "experience": 0, "education": 0, "keywords": 0}, "matched_skills": [], "missing_skills": [], "improvement_tips": [], "keyword_gaps": [], "summary": ""}`,
-      `RESUME:\n${resumeText}\n\nJOB DESCRIPTION:\n${jobDescription}`
-    );
-  } catch (e) {
-    return fallbackCoreMatch(resumeText, jobDescription);
-  }
-}
-
-async function simulateATS(resumeText, jobDescription) {
-  try {
-    const ats = await callAI(
-      `You are an ATS scanner. Return ONLY JSON: {"ats_score": 0, "parsing_issues": [], "detected_sections": [], "missing_sections": [], "keyword_density": {"high_match": [], "partial_match": [], "missing": []}, "formatting_warnings": [], "ats_verdict": ""}`,
-      `RESUME:\n${resumeText}\n\nJOB DESCRIPTION:\n${jobDescription}`
-    );
-    ats.detected_sections = detectSections(resumeText);
-    return ats;
-  } catch (e) {
-    return fallbackATS(resumeText, jobDescription);
-  }
-}
-
-async function rewriteBullets(resumeText, jobDescription) {
-  try {
-    return await callAI(
-      `You are an ATS resume optimizer. Return ONLY JSON: {"rewrites": [{"original": "", "improved": "", "reason": "", "confidence": 100}]}`,
-      `RESUME:\n${resumeText}\n\nJOB DESCRIPTION:\n${jobDescription}`
-    );
-  } catch (e) {
-    return fallbackRewrites(resumeText);
-  }
-}
-
-async function analyzeGaps(resumeText, jobDescription) {
-  try {
-    return await callAI(
-      `You are a career coach. Return ONLY JSON: {"readiness_percentage": 75, "gap_summary": "", "skill_gaps": [{"skill": "", "priority": "High", "estimated_time": "", "resources": [{"name": "", "url": ""}]}], "weekly_milestones": [{"week": 1, "title": "", "description": ""}], "certifications": [{"name": "", "provider": ""}], "portfolio_projects": [{"title": "", "description": "", "tech_stack": []}], "timeline": "4 - 6 Weeks", "milestones": [{"label": "", "percentage": 25}]}`,
-      `RESUME:\n${resumeText}\n\nJOB DESCRIPTION:\n${jobDescription}`
-    );
-  } catch (e) {
-    return fallbackGaps(resumeText, jobDescription);
-  }
-}
-
-async function generateCoverLetter(resumeText, jobDescription, candidateName = "Candidate", githubAnalysis = null) {
-  try {
-    return await callAI(
-      `You are an expert application writer. Create a natural, specific cover letter from the candidate's resume for the exact job description.
-Rules:
-1. The resume is the source of truth. Never invent employers, internships, achievements, metrics, certifications, technologies, responsibilities, or experience.
-2. Identify the exact target role from the job description. Clean the title: do not repeat words such as "position" or include an entire requirement sentence as the title.
-3. Open with the exact role and a clear reason the candidate is interested in it. Do not use "I am excited to apply" as the entire opening.
-4. Select ONLY 2-3 resume facts that are genuinely relevant to the job. Prefer named projects, concrete features built, tools used, coursework, or measurable results from the resume.
-5. For each selected project/experience, explain the connection to a requirement in the job description. Do not merely list technologies.
-6. Mention the candidate's actual project name when it makes the letter more concrete. Do not quote raw resume lines or paste project descriptions verbatim.
-7. If GitHub evidence is available, mention it briefly and naturally; do not make GitHub the main selling point.
-8. Avoid generic filler such as "turn requirements into working solutions", "contribute immediate value", "strongly align", "software craftsmanship", or "technical background could support your team" unless followed by concrete evidence.
-9. Never use "throughout my career" for a student or early-career candidate.
-10. Write 220-300 words in 4 short paragraphs: opening, relevant project/experience evidence, second relevant connection, closing.
-11. Do not start more than one paragraph with "I".
-12. Return ONLY valid JSON: {"subject_line":"","cover_letter":"","highlights_used":[],"tone":"Professional & Tailored"}`,
-      `CANDIDATE: ${candidateName}\nRESUME:\n${resumeText}\nJOB:\n${jobDescription}`
-    );
-  } catch (e) {
-    return fallbackCoverLetter(resumeText, jobDescription, candidateName, githubAnalysis);
-  }
-}
-
-async function generateInterviewPrep(resumeText, jobDescription, candidateName = "Candidate", githubAnalysis = null) {
-  try {
-    return await callAI(
-      `You are an expert technical interviewer. Return ONLY JSON: {"technical_questions": [{"question": "", "answer": "", "topic": ""}], "coding_questions": [{"question": "", "solution_approach": "", "complexity": ""}], "behavioral_questions": [{"question": "", "star_framework_guide": ""}], "project_discussion": [{"question": "", "talking_points": ""}]}`,
-      `CANDIDATE: ${candidateName}\nRESUME:\n${resumeText}\nJOB:\n${jobDescription}`
-    );
-  } catch (e) {
-    return fallbackInterviewPrep(resumeText, jobDescription, candidateName);
-  }
-}
-
-async function runAllAnalyses(resumeText, jobDescription, candidateName = 'Candidate', githubAnalysis = null) {
-  const results = await Promise.allSettled([
-    analyzeCoreMatch(resumeText, jobDescription),
-    simulateATS(resumeText, jobDescription),
-    rewriteBullets(resumeText, jobDescription),
-    analyzeGaps(resumeText, jobDescription),
-    generateCoverLetter(resumeText, jobDescription, candidateName, githubAnalysis),
-    generateInterviewPrep(resumeText, jobDescription, candidateName, githubAnalysis)
-  ]);
-
-  return {
-    core_match: results[0].status === "fulfilled" ? results[0].value : fallbackCoreMatch(resumeText, jobDescription),
-    ats: results[1].status === "fulfilled" ? results[1].value : fallbackATS(resumeText, jobDescription),
-    rewrites: results[2].status === "fulfilled" ? results[2].value : fallbackRewrites(resumeText),
-    gaps: results[3].status === "fulfilled" ? results[3].value : fallbackGaps(resumeText, jobDescription),
-    cover_letter: results[4].status === "fulfilled" ? results[4].value : fallbackCoverLetter(resumeText, jobDescription, candidateName, githubAnalysis),
-    interview_prep: results[5].status === "fulfilled" ? results[5].value : fallbackInterviewPrep(resumeText, jobDescription, candidateName)
-  };
-}
-
-module.exports = {
-  runAllAnalyses
-};
