@@ -7,8 +7,11 @@ const db = require('./database');
 
 let JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET || JWT_SECRET.includes('your_')) {
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('JWT_SECRET must be configured in production.');
+  }
   JWT_SECRET = crypto.randomBytes(32).toString('hex');
-  console.warn('JWT_SECRET not set: using a temporary secret. Everyone is logged out on each restart.');
+  console.warn('JWT_SECRET not set: using a temporary development secret.');
 }
 
 const TOKEN_TTL = '7d';
