@@ -9,6 +9,7 @@ import RoadmapItem from '../components/RoadmapItem';
 import CoverLetterCard from '../components/CoverLetterCard';
 import BackgroundEffects from '../components/BackgroundEffects';
 import { mergeProfile } from '../utils/profileMerger';
+import { getHistory, getAnalysis } from '../api/client';
 import { useAnalysisContext } from '../context/AnalysisContext';
 
 const Results = () => {
@@ -20,22 +21,51 @@ const Results = () => {
   const { analysisData } = useAnalysisContext();
 
   useEffect(() => {
-    if (analysisData) {
-      setResult(analysisData);
-    } else {
+    let cancelled = false;
+
+    const loadResults = async () => {
+      if (analysisData) {
+        setResult(analysisData);
+        return;
+      }
+
       const storedResult = sessionStorage.getItem('analysisResult');
       if (storedResult) {
         try {
-          setResult(JSON.parse(storedResult));
+          const parsed = JSON.parse(storedResult);
+          if (!cancelled) setResult(parsed);
+          return;
         } catch (error) {
           console.error('Invalid stored analysis result:', error);
           sessionStorage.removeItem('analysisResult');
-          navigate('/');
         }
-      } else {
-        navigate('/');
       }
-    }
+
+      // Recover the most recent saved analysis when the page is opened
+      // directly, after a refresh, or after session state is lost.
+      try {
+        const history = await getHistory();
+        if (Array.isArray(history) && history.length > 0) {
+          const latest = history[0];
+          const fullAnalysis = await getAnalysis(latest.id);
+          if (!cancelled && fullAnalysis) {
+            sessionStorage.setItem('analysisResult', JSON.stringify(fullAnalysis));
+            setResult(fullAnalysis);
+            return;
+          }
+        }
+      } catch (error) {
+        console.error('Unable to recover latest analysis:', error);
+      }
+
+      if (!cancelled) navigate('/');
+    };
+
+    loadResults();
+
+    return () => {
+      cancelled = true;
+    };
   }, [analysisData, navigate]);
 
   if (!result) {
