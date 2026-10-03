@@ -83,7 +83,6 @@ function containsAlias(text, alias) {
     from = index + 1;
   }
 }
-}
 
 function extractSkills(text) {
   return ORDERED_SKILLS.filter(skill =>
