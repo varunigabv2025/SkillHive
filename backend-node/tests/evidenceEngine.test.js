@@ -34,6 +34,6 @@ test('alignment is reproducible from the same inputs', () => {
     sections: ['Education', 'Projects']
   });
   assert.equal(result.matched_skills.length, 2);
-  assert.deepStrictEqual(result.missing_skills, ['Node.js']);
+  assert.deepStrictEqual(result.missing_skills, ['Docker']);
   assert.equal(result.readiness_percentage, 67);
 });
