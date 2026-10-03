@@ -104,10 +104,34 @@ function mergeProfile(resumeAnalysis = {}, githubAnalysis = {}) {
     skill => !verifiedSkillSet.has(normalize(skill))
   );
 
-  // 5. Compute resumeRecommendations (GitHub skills missing in Resume)
-  const resumeRecommendations = githubSkills
+  // 5. Compute concise, sentence-style resume recommendations.
+  const resumeRecommendations = [];
+
+  unverifiedClaims.forEach(skill => {
+    resumeRecommendations.push(
+      `For ${skill}, mention the specific project, feature, or implementation where you used it instead of listing the skill alone.`
+    );
+  });
+
+  githubSkills
     .filter(skill => !resumeSkillMap.has(normalize(skill)))
-    .map(skill => `Add ${skill} to your resume.`);
+    .forEach(skill => {
+      resumeRecommendations.push(
+        `Highlight ${skill} in the relevant project or experience section when your GitHub work provides concrete evidence of using it.`
+      );
+    });
+
+  if (resumeRecommendations.length === 0) {
+    resumeRecommendations.push(
+      'Describe your strongest projects with the technology used, what you built, and the problem or requirement you solved.'
+    );
+    resumeRecommendations.push(
+      'Replace generic project descriptions with measurable outcomes such as accuracy, performance, users served, or features delivered whenever those numbers are available.'
+    );
+    resumeRecommendations.push(
+      'Link your most relevant GitHub repositories directly from the corresponding project entries so your technical work is easy to verify.'
+    );
+  }
 
   // 6. Aggregate Strengths
   const strengths = [];
