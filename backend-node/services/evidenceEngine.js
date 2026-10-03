@@ -66,17 +66,23 @@ const SKILL_ALIASES = {
 
 const ORDERED_SKILLS = Object.keys(SKILL_ALIASES);
 
-function escapeRegExp(value) {
-  return String(value).replace(/[.*+?^\${}()|[\\]\\]/g, '\\$&');
-}
-
 function containsAlias(text, alias) {
   const source = String(text || '').toLowerCase();
   const value = String(alias || '').toLowerCase().trim();
   if (!value) return false;
-  const escaped = escapeRegExp(value);
-  const pattern = new RegExp('(^|[^a-z0-9])' + escaped + '([^a-z0-9]|$)', 'i');
-  return pattern.test(source);
+
+  let from = 0;
+  while (true) {
+    const index = source.indexOf(value, from);
+    if (index === -1) return false;
+    const before = index === 0 ? '' : source[index - 1];
+    const afterIndex = index + value.length;
+    const after = afterIndex >= source.length ? '' : source[afterIndex];
+    const isWord = ch => /[a-z0-9]/i.test(ch || '');
+    if (!isWord(before) && !isWord(after)) return true;
+    from = index + 1;
+  }
+}
 }
 
 function extractSkills(text) {
