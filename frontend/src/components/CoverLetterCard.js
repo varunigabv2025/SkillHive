@@ -34,7 +34,9 @@ const CoverLetterCard = ({ coverLetter, candidateName }) => {
 
   return (
     <div className="relative overflow-hidden rounded-[28px] border border-white/[0.09] bg-[#080d1d]/90 shadow-[0_24px_80px_-35px_rgba(0,0,0,.9)] backdrop-blur-2xl">
-      <div className="pointer-events-none absolute -top-32 right-0 h-64 w-64 rounded-full bg-violet-500/10 blur-[90px]" />\n      <div className="pointer-events-none absolute -bottom-32 left-0 h-64 w-64 rounded-full bg-cyan-500/10 blur-[90px]" />\n      <div className="relative p-6 sm:p-8">
+      <div className="pointer-events-none absolute -top-32 right-0 h-64 w-64 rounded-full bg-violet-500/10 blur-[90px]" />
+      <div className="pointer-events-none absolute -bottom-32 left-0 h-64 w-64 rounded-full bg-cyan-500/10 blur-[90px]" />
+      <div className="relative p-6 sm:p-8">
       {/* Header Controls */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-6 mb-6 border-b border-white/10 gap-4">
         <div>
