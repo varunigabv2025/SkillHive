@@ -48,8 +48,17 @@ const Home = () => {
     analyze(file, jobDescription, githubUrl);
   };
 
+
   if (loading) {
     return (
+      <LoadingScreen
+        currentStep={currentStep}
+        progress={progress}
+      />
+    );
+  }
+
+  return (
     <div className="min-h-screen bg-[#07090f] text-slate-100 relative overflow-hidden">
       {BackgroundEffects && <BackgroundEffects />}
 
@@ -180,6 +189,7 @@ const Home = () => {
         </section>
       </main>
     </div>
+  );
   );
 };
 
