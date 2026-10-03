@@ -242,7 +242,12 @@ app.get('/api/history/:id', requireAuth, (req, res) => {
       candidateProfile: {
         user: { name: 'Candidate', title: row.job_title },
         verifiedSkills: (parsedTrust.verifiedSkills || []).map(s => ({ skill: s, evidence: 'Verified code evidence' })),
-        unverifiedClaims: parsedTrust.unverifiedSkills || []
+        unverifiedClaims: parsedTrust.unverifiedSkills || [],
+        resumeRecommendations: [
+          'Strengthen unverified resume claims with a relevant project, repository, contribution, or measurable evidence where applicable.',
+          'Add measurable outcomes to your strongest projects, such as performance improvements, accuracy achieved, users served, or features implemented.',
+          'Include direct GitHub repository links for your most relevant projects to make technical experience easier to verify.'
+        ]
       },
       githubAnalysis: null,
       atsAnalysis,
@@ -258,7 +263,11 @@ app.get('/api/history/:id', requireAuth, (req, res) => {
       },
       coreMatch,
       rewrites: { rewrites: JSON.parse(row.rewrites || '[]') },
-      recommendations: [],
+      recommendations: [
+        'Strengthen unverified resume claims with relevant evidence where applicable.',
+        'Add measurable outcomes to your strongest projects.',
+        'Include direct GitHub links for your most relevant projects.'
+      ],
       metadata: {
         status: 'SUCCESS',
         confidence: 95,
