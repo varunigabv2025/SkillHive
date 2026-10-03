@@ -22,6 +22,10 @@ app.use(cors({
   credentials: true
 }));
 app.use(express.json());
+app.use('/api', (req, res, next) => {
+  res.set('Cache-Control', 'no-store');
+  next();
+});
 
 // Multer configuration for file uploads
 const storage = multer.memoryStorage();
