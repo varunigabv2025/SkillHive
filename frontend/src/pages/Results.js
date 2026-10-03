@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Copy, Sparkles, ShieldCheck, CheckCircle2, AlertTriangle, Terminal, BookOpen, Mail, FileText, MessageSquare, Users, Award, Code, HelpCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import { ArrowLeft, Sparkles, ShieldCheck, CheckCircle2, AlertTriangle, Terminal, BookOpen, Mail, MessageSquare, Users, Award, Code, HelpCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import toast from 'react-hot-toast';
 import ScoreCard from '../components/ScoreCard';
 import SkillBadge from '../components/SkillBadge';
-import RewriteCard from '../components/RewriteCard';
 import RoadmapItem from '../components/RoadmapItem';
 import CoverLetterCard from '../components/CoverLetterCard';
 import BackgroundEffects from '../components/BackgroundEffects';
@@ -118,7 +117,6 @@ const Results = () => {
     ats_verdict: 'Audit Pending'
   };
 
-  const rewrites = result?.rewrites || { rewrites: [] };
   const rawGaps = result?.skillGap || result?.roadmap || result?.gaps || {};
   const roadmapFallbackSkills = coreMatch?.missing_skills || [];
   const gaps = {
@@ -159,6 +157,30 @@ const Results = () => {
       }))
   };
   const coverLetter = result?.coverLetter || result?.cover_letter || { subject_line: '', cover_letter: '', highlights_used: [], tone: '' };
+
+  const candidateName =
+    result?.metadata?.candidateName ||
+    result?.candidateProfile?.user?.name ||
+    'Candidate';
+
+  const normalizedCandidateName = String(candidateName).trim();
+  const rawCoverLetterText = String(coverLetter.cover_letter || '').trim();
+  const signatureMatch = rawCoverLetterText.match(/\n\s*Sincerely,?\s*$/i);
+  const displayCoverLetter = signatureMatch && normalizedCandidateName && normalizedCandidateName !== 'Candidate'
+    ? rawCoverLetterText + `\n${normalizedCandidateName}`
+    : rawCoverLetterText;
+  const displayCoverLetterData = { ...coverLetter, cover_letter: displayCoverLetter };
+
+  const atsMatchedCount = ats.keyword_density?.high_match?.length || 0;
+  const atsMissingCount = ats.keyword_density?.missing?.length || 0;
+  const atsKeywordTotal = atsMatchedCount + atsMissingCount;
+  const atsKeywordScore = atsKeywordTotal
+    ? Math.round((atsMatchedCount / atsKeywordTotal) * 100)
+    : 0;
+  const atsSectionScore = Math.round(((ats.detected_sections?.length || 0) / 6) * 100);
+  const atsDisplayScore = Number(ats.ats_score) > 0
+    ? Math.round(Number(ats.ats_score))
+    : (ats.detected_sections?.length || atsKeywordTotal ? Math.round(atsKeywordScore * 0.65 + atsSectionScore * 0.35) : 0);
   const interviewPrep = result?.interviewPrep || result?.interview_prep || { technical_questions: [], coding_questions: [], behavioral_questions: [], project_discussion: [] };
 
   // Use precomputed candidate profile or generate from backend API response
@@ -178,19 +200,10 @@ const Results = () => {
     { id: 'overview', label: 'Overview', icon: Sparkles },
     { id: 'unified', label: 'Unified Profile & Verification', icon: ShieldCheck },
     { id: 'ats', label: 'ATS Inspection', icon: CheckCircle2 },
-    { id: 'rewrites', label: 'AI Bullet Rewrites', icon: FileText },
     { id: 'roadmap', label: 'AI Career Roadmap', icon: BookOpen },
     { id: 'coverletter', label: 'Cover Letter Generator', icon: Mail },
     { id: 'interview', label: 'Interview Preparation', icon: MessageSquare },
   ];
-
-  const handleCopyAllRewrites = () => {
-    const allRewrites = rewrites.rewrites
-      ?.map(r => r.improved)
-      ?.join('\n') || '';
-    navigator.clipboard.writeText(allRewrites);
-    toast.success('All improved bullet rewrites copied to clipboard!');
-  };
 
   const renderOverview = () => (
     <div className="space-y-8 fade-in">
@@ -481,12 +494,12 @@ const Results = () => {
           <div className="w-full h-4 bg-space-950 rounded-full p-0.5 border border-white/10 overflow-hidden">
             <div
               className="h-full bg-gradient-to-r from-cyan-500 to-emerald-500 rounded-full transition-all duration-700 shadow-[0_0_15px_-3px_rgba(6,182,212,0.4)]"
-              style={{ width: `${ats.ats_score || 0}%` }}
+              style={{ width: `${atsDisplayScore}%` }}
             />
           </div>
           <div className="flex justify-between text-xs font-mono text-slate-400">
             <span>ATS Compatibility Index</span>
-            <span className="text-cyan-400 font-bold">{Math.round(ats.ats_score || 0)}%</span>
+            <span className="text-cyan-400 font-bold">{atsDisplayScore}%</span>
           </div>
         </div>
 
@@ -555,29 +568,6 @@ const Results = () => {
             </table>
           </div>
         </div>
-      </div>
-    </div>
-  );
-
-  const renderRewrites = () => (
-    <div className="space-y-6 fade-in">
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h2 className="text-xl font-heading font-bold text-white">AI-Optimized Bullet Rewrites</h2>
-          <p className="text-xs font-mono text-slate-400">Action-oriented impact bullet points</p>
-        </div>
-        <button
-          onClick={handleCopyAllRewrites}
-          className="flex items-center space-x-2 px-4 py-2.5 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 font-mono text-xs shadow-[0_0_15px_-3px_rgba(6,182,212,0.4)] transition-all"
-        >
-          <Copy className="w-4 h-4" />
-          <span>Copy All Rewrites</span>
-        </button>
-      </div>
-      <div className="space-y-4">
-        {rewrites.rewrites?.map((rewrite, index) => (
-          <RewriteCard key={index} rewrite={rewrite} />
-        ))}
       </div>
     </div>
   );
@@ -677,7 +667,7 @@ const Results = () => {
 
   const renderCoverLetter = () => (
     <div className="fade-in">
-      <CoverLetterCard coverLetter={coverLetter} />
+      <CoverLetterCard coverLetter={displayCoverLetterData} />
     </div>
   );
 
@@ -830,7 +820,6 @@ const Results = () => {
           {activeTab === 'overview' && renderOverview()}
           {activeTab === 'unified' && renderUnified()}
           {activeTab === 'ats' && renderATS()}
-          {activeTab === 'rewrites' && renderRewrites()}
           {activeTab === 'roadmap' && renderRoadmap()}
           {activeTab === 'coverletter' && renderCoverLetter()}
           {activeTab === 'interview' && renderInterview()}
