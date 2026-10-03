@@ -117,12 +117,11 @@ async function analyzeCandidate({ resumeBuffer, mimeType, jobDescription, github
   );
 
   const skillGaps = deterministicGaps.map(skill => {
-    const aiGap = aiGapMap.get(skill.toLowerCase());
     return {
       skill,
-      priority: aiGap?.priority || 'High',
-      estimated_time: aiGap?.estimated_time || '1-2 weeks',
-      resources: Array.isArray(aiGap?.resources) ? aiGap.resources : []
+      priority: 'Based on job-description gap',
+      estimated_time: 'Varies by current proficiency',
+      resources: [{ name: skill + ' official documentation' }]
     };
   });
 
