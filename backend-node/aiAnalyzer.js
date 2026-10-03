@@ -13,6 +13,92 @@ const TECH_KEYWORDS = [
   'Unit Testing', 'Jest', 'System Design', 'Microservices', 'Agile'
 ];
 
+async function callAI(systemPrompt, userPrompt) {
+  const payload = {
+    model: AI_MODEL,
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt }
+    ],
+    temperature: 0.2,
+    response_format: { type: "json_object" }
+  };
+
+  if (OPENROUTER_API_KEY) {
+    const response = await axios.post(
+      "https://openrouter.ai/api/v1/chat/completions",
+      payload,
+      {
+        headers: {
+          Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+          "Content-Type": "application/json",
+          "HTTP-Referer": "https://skill-hive-green.vercel.app",
+          "X-Title": "SkillBridge AI"
+        },
+        timeout: 30000
+      }
+    );
+    const content = response.data?.choices?.[0]?.message?.content;
+    if (!content) throw new Error("AI returned no content");
+    return typeof content === "string" ? JSON.parse(content) : content;
+  }
+
+  if (GOOGLE_API_KEY) {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMMA_MODEL}:generateContent?key=${GOOGLE_API_KEY}`;
+    const response = await axios.post(
+      url,
+      {
+        contents: [{ role: "user", parts: [{ text: `${systemPrompt}\n\n${userPrompt}` }] }],
+        generationConfig: { temperature: 0.2, responseMimeType: "application/json" }
+      },
+      { headers: { "Content-Type": "application/json" }, timeout: 30000 }
+    );
+    const content = response.data?.candidates?.[0]?.content?.parts?.map(p => p.text || "").join("");
+    if (!content) throw new Error("Google AI returned no content");
+    return JSON.parse(content.replace(/^\s*```json\s*/i, "").replace(/\s*```\s*$/i, "").trim());
+  }
+
+  throw new Error("No AI API key configured");
+}
+
+function extractJobTitle(jobDescription) {
+  if (!jobDescription) return "Position";
+  const lines = String(jobDescription).split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+  const explicit = lines.find(line => /^(job\s*title|position|role)\s*[:\-]/i.test(line));
+  if (explicit) return explicit.replace(/^(job\s*title|position|role)\s*[:\-]\s*/i, "").trim();
+
+  const first = lines[0] || "";
+  const segment = first.split(",")[0].trim();
+  return segment.length >= 3 && segment.length <= 80 ? segment.replace(/\s+position$/i, "") : "Position";
+}
+
+function extractResumeProjects(resumeText) {
+  const lines = String(resumeText || "").split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  const projects = [];
+  let inProjects = false;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (/^(projects?|academic projects?|personal projects?)\s*:?$/i.test(line)) {
+      inProjects = true;
+      continue;
+    }
+    if (inProjects && /^(education|experience|work experience|skills|certifications?|achievements?|awards?)\s*:?$/i.test(line)) {
+      break;
+    }
+    if (inProjects && line.length >= 3 && line.length <= 100 && !/^[-•*]/.test(line)) {
+      const next = [];
+      for (let j = i + 1; j < Math.min(i + 5, lines.length); j++) {
+        if (/^[-•*]/.test(lines[j]) || lines[j].length > 100) next.push(lines[j].replace(/^[-•*]\s*/, ""));
+      }
+      projects.push({ title: line, details: next.slice(0, 2).join(" ") });
+      if (projects.length >= 5) break;
+    }
+  }
+
+  return projects;
+}
+
 function detectSections(resumeText) {
   if (!resumeText) return [];
   const text = resumeText.toLowerCase();
@@ -253,6 +339,36 @@ Return ONLY JSON:
   } catch (error) {
     return fallbackRewrites(resumeText);
   }
+}
+
+function fallbackGaps(resumeText, jobDescription) {
+  const resumeSkills = extractKeywords(resumeText);
+  const jobSkills = extractKeywords(jobDescription);
+  const missing = [...new Set(jobSkills.filter(skill =>
+    !resumeSkills.some(rs => rs.toLowerCase() === skill.toLowerCase())
+  ))];
+
+  const readiness = jobSkills.length
+    ? Math.max(0, Math.round(((jobSkills.length - missing.length) / jobSkills.length) * 100))
+    : 0;
+
+  return {
+    readiness_percentage: readiness,
+    gap_summary: missing.length
+      ? `The main skill gaps identified from the job description are ${missing.join(", ")}.`
+      : "No major technology gaps were detected from the listed job requirements.",
+    skill_gaps: missing.map(skill => ({
+      skill,
+      current_level: "Not evidenced in the resume",
+      target_level: "Working proficiency",
+      priority: "High"
+    })),
+    weekly_milestones: [],
+    certifications: [],
+    portfolio_projects: [],
+    timeline: missing.length ? "Build evidence for the missing skills through small projects and hands-on practice." : "Continue strengthening existing project evidence.",
+    milestones: []
+  };
 }
 
 async function analyzeGaps(resumeText, jobDescription) {
