@@ -216,7 +216,7 @@ export function mergeProfile(resumeAnalysis = {}, githubAnalysis = {}) {
     verifiedSkills,
     unverifiedClaims,
     resumeRecommendations: finalResumeRecommendations,
-    strengths:
+    strengths,
     weaknesses,
     careerDomains,
     metadata: {
