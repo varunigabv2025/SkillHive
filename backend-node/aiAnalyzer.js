@@ -333,3 +333,84 @@ ${candidateName}`,
     tone: "Professional & Tailored"
   };
 }
+
+
+function fallbackInterviewPrep(resumeText, jobDescription, candidateName = "Candidate") {
+  const core = fallbackCoreMatch(resumeText, jobDescription);
+  const matched = core.matched_skills || [];
+  const missing = core.missing_skills || [];
+
+  return {
+    technical_questions: [
+      {
+        question: `How did you use ${matched[0] || 'the main technology'} in one of your projects?`,
+        answer: `Explain the specific project, what you implemented, why you chose the technology, and one technical challenge you solved.`,
+        topic: matched[0] || 'Technical Experience'
+      },
+      {
+        question: `How would you approach learning or implementing ${missing[0] || 'a missing job requirement'}?`,
+        answer: `Explain the concepts you would learn first, how you would build a small working example, and how you would validate the implementation.`,
+        topic: missing[0] || 'Skill Gap'
+      }
+    ],
+    coding_questions: [
+      {
+        question: 'Design a REST API endpoint for creating and retrieving a resource.',
+        solution_approach: 'Define the resource schema, validate input, implement POST and GET handlers, use appropriate status codes, and handle database errors.',
+        complexity: 'Depends on database indexing and query design'
+      }
+    ],
+    behavioral_questions: [
+      {
+        question: 'Describe a technical challenge you faced in a project and how you solved it.',
+        star_framework_guide: 'Situation: describe the project context. Task: explain the problem. Action: explain the concrete debugging or implementation steps. Result: state the actual outcome.'
+      }
+    ],
+    project_discussion: [
+      {
+        question: 'Walk through your most relevant project for this role.',
+        talking_points: 'Explain the problem, architecture, technologies, your contribution, important implementation decisions, challenges, and the final result.'
+      }
+    ]
+  };
+}
+
+async function generateInterviewPrep(resumeText, jobDescription, candidateName = "Candidate", githubAnalysis = null) {
+  try {
+    return await callAI(
+      `You are an expert technical interviewer. Use only the candidate resume and exact job description. Never invent project facts. Return ONLY valid JSON:
+{"technical_questions":[{"question":"","answer":"","topic":""}],"coding_questions":[{"question":"","solution_approach":"","complexity":""}],"behavioral_questions":[{"question":"","star_framework_guide":""}],"project_discussion":[{"question":"","talking_points":""}]}`,
+      `CANDIDATE: ${candidateName}\nRESUME:\n${resumeText}\nJOB DESCRIPTION:\n${jobDescription}`
+    );
+  } catch (error) {
+    return fallbackInterviewPrep(resumeText, jobDescription, candidateName);
+  }
+}
+
+async function runAllAnalyses(resumeText, jobDescription, candidateName = 'Candidate', githubAnalysis = null) {
+  const results = await Promise.allSettled([
+    analyzeCoreMatch(resumeText, jobDescription),
+    simulateATS(resumeText, jobDescription),
+    rewriteBullets(resumeText, jobDescription),
+    analyzeGaps(resumeText, jobDescription),
+    generateCoverLetter(resumeText, jobDescription, candidateName, githubAnalysis),
+    generateInterviewPrep(resumeText, jobDescription, candidateName, githubAnalysis)
+  ]);
+
+  return {
+    core_match: results[0].status === 'fulfilled' ? results[0].value : fallbackCoreMatch(resumeText, jobDescription),
+    ats: results[1].status === 'fulfilled' ? results[1].value : fallbackATS(resumeText, jobDescription),
+    rewrites: results[2].status === 'fulfilled' ? results[2].value : fallbackRewrites(resumeText),
+    gaps: results[3].status === 'fulfilled' ? results[3].value : fallbackGaps(resumeText, jobDescription),
+    cover_letter: results[4].status === 'fulfilled'
+      ? results[4].value
+      : fallbackCoverLetter(resumeText, jobDescription, candidateName, githubAnalysis),
+    interview_prep: results[5].status === 'fulfilled'
+      ? results[5].value
+      : fallbackInterviewPrep(resumeText, jobDescription, candidateName)
+  };
+}
+
+module.exports = {
+  runAllAnalyses
+};
