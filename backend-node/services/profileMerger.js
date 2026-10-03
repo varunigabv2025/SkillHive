@@ -62,8 +62,9 @@ function createUnifiedProfile(data = {}) {
 function mergeProfile(resumeAnalysis = {}, githubAnalysis = {}) {
   // 1. Internally map ResumeIQ's existing structure (core_match.matched_skills)
   // while supporting fallback to resumeAnalysis.skills
-  const resumeSkills = resumeAnalysis?.core_match?.matched_skills || 
-                       resumeAnalysis?.skills || 
+  const resumeSkills = resumeAnalysis?.resume_skills ||
+                       resumeAnalysis?.skills ||
+                       resumeAnalysis?.core_match?.matched_skills ||
                        [];
 
   // 2. Extract GitHub skills provided by Person A's analyzer
