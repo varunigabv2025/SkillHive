@@ -382,8 +382,26 @@ Rules:
       /turning technical requirements into working solutions/i
     ];
 
-    if (!generated?.cover_letter || genericSignals.some(pattern => pattern.test(letter))) {
-      throw new Error('Generated cover letter was too generic; using project-specific fallback.');
+    const projects = extractResumeProjects(resumeText);
+    const projectEvidence = projects
+      .map(project => String(project.title || '').toLowerCase().replace(/[^a-z0-9 ]/g, ' ').trim())
+      .filter(Boolean);
+
+    const mentionsProject = projectEvidence.length === 0 || projectEvidence.some(title => {
+      const words = title.split(/\\s+/).filter(Boolean).slice(0, 3);
+      return words.length > 0 && words.every(word => letter.toLowerCase().includes(word));
+    });
+
+    const wordCount = letter.split(/\\s+/).filter(Boolean).length;
+
+    if (
+      !generated?.cover_letter ||
+      genericSignals.some(pattern => pattern.test(letter)) ||
+      !mentionsProject ||
+      wordCount < 150 ||
+      wordCount > 320
+    ) {
+      throw new Error('Generated cover letter failed specificity checks; using project-specific fallback.');
     }
 
     return generated;
