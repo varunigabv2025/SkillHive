@@ -3,54 +3,61 @@ const skillswapProfiles = require('./mocks/skillswapProfiles');
 
 const MAX_MATCHES = 5;
 
-function intersect(a, b) {
-    const bLower = new Set(b.map(s => s.toLowerCase()));
-    return a.filter(s => bLower.has(s.toLowerCase()));
+function intersect(a = [], b = []) {
+  const bSet = new Set(normalizeSkillList(b).map(s => s.toLowerCase()));
+  return normalizeSkillList(a).filter(s => bSet.has(s.toLowerCase()));
 }
 
 function findMatchesForCandidate(candidateSkills = [], candidateGaps = [], candidateName = 'Candidate') {
-    const strengths = normalizeSkillList(candidateSkills);
-    const strengthSet = new Set(strengths.map(s => s.toLowerCase()));
-    // A skill cannot simultaneously be a strength and a weakness.
-    const gaps = normalizeSkillList(candidateGaps).filter(
-        skill => !strengthSet.has(skill.toLowerCase())
-    );
+  const strengths = normalizeSkillList(candidateSkills);
+  const strengthSet = new Set(strengths.map(s => s.toLowerCase()));
 
-    return skillswapProfiles
-        .map(profile => {
-            const youCanTeach = intersect(strengths, profile.gaps);
-            const theyCanTeach = intersect(profile.strengths, gaps);
-            if (youCanTeach.length === 0 && theyCanTeach.length === 0) return null;
+  // A skill cannot be both a strength and a gap.
+  const gaps = normalizeSkillList(candidateGaps).filter(
+    skill => !strengthSet.has(skill.toLowerCase())
+  );
 
-            const compatibilityScore = Math.min(
-                99,
-                45 + 11 * Math.min(3, youCanTeach.length) + 11 * Math.min(3, theyCanTeach.length)
-            );
+  return skillswapProfiles
+    .map(profile => {
+      const profileStrengths = normalizeSkillList(profile.strengths || []);
+      const profileGaps = normalizeSkillList(profile.gaps || []);
 
-            const parts = [];
-            if (youCanTeach.length) parts.push(`you can help them with ${youCanTeach.join(', ')}`);
-            if (theyCanTeach.length) parts.push(`${profile.name} can help you with ${theyCanTeach.join(', ')}`);
+      // Reciprocal matching:
+      // 1. Candidate teaches something the peer wants.
+      // 2. Peer teaches something the candidate needs.
+      const youCanTeach = intersect(strengths, profileGaps);
+      const theyCanTeach = intersect(profileStrengths, gaps);
 
-            return {
-                name: profile.name,
-                title: profile.title,
-                compatibilityScore,
-                youCanTeach,
-                theyCanTeach,
-                reason: `${parts.join(', and ')}.`,
-                isDemo: true
-            };
-        })
-        .filter(Boolean)
-        .sort((a, b) => b.compatibilityScore - a.compatibilityScore)
-        .slice(0, MAX_MATCHES);
+      // A SkillSwap match should provide an actual exchange, not just a one-way overlap.
+      if (!youCanTeach.length || !theyCanTeach.length) return null;
+
+      const compatibilityScore = Math.min(
+        99,
+        55 +
+        10 * Math.min(2, youCanTeach.length) +
+        10 * Math.min(2, theyCanTeach.length)
+      );
+
+      return {
+        name: profile.name,
+        title: profile.title,
+        compatibilityScore,
+        youCanTeach,
+        theyCanTeach,
+        reason: `You can help ${profile.name} with ${youCanTeach.join(', ')}, and ${profile.name} can help you with ${theyCanTeach.join(', ')}.`,
+        isDemo: true
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => b.compatibilityScore - a.compatibilityScore)
+    .slice(0, MAX_MATCHES);
 }
 
 function findMatches() {
-    return [];
+  return [];
 }
 
 module.exports = {
-    findMatches,
-    findMatchesForCandidate
+  findMatches,
+  findMatchesForCandidate
 };
