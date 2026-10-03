@@ -479,22 +479,23 @@ async function analyzeGaps(resumeText, jobDescription) {
 async function generateCoverLetter(resumeText, jobDescription, candidateName = "Candidate", githubAnalysis = null) {
   try {
     const generated = await callAI(
-      `Write a polished, truthful cover letter for the exact role in the job description using only evidence from the resume.
+      `Write a polished, concise cover letter for the exact role in the job description using ONLY evidence from the resume.
 
-STRICT RULES:
-1. The resume is the only source of truth. Never invent employers, internships, achievements, metrics, certifications, responsibilities, technologies, or project details.
-2. Identify the exact job title from the job description. Do not copy the entire job-description sentence as the title.
-3. Use 2 or 3 REAL projects or experiences from the resume that are relevant to the role.
-4. IMPORTANT: Never attach a technology to a project unless the resume explicitly associates that technology with that project. Keep project-specific technologies separate from general skills.
-5. Convert project details into natural prose. Do NOT copy resume bullet points verbatim.
-6. Explain what was built, what the candidate implemented, and why it is relevant to the target role.
-7. Do not simply list technologies. Connect technologies to verified project work.
-8. Avoid generic filler such as "I am excited to apply", "throughout my career", "contribute immediate value", or "technical background could support your team".
-9. For a student/early-career candidate, emphasize projects and academic/personal development rather than implying professional employment.
-10. Write 180-260 words in 4 concise paragraphs.
-11. Do not mention GitHub unless it adds meaningful evidence.
-12. End with "Sincerely," followed by the candidate name.
-13. Return ONLY valid JSON:
+RULES:
+- Identify the exact role title and use normal professional capitalization.
+- Open directly with the role and the candidate's relevant background; avoid generic enthusiasm.
+- Use exactly 2 concrete resume projects or experiences that are relevant to the job.
+- For each project, state what was built and what was implemented, using only facts explicitly associated with that project in the resume.
+- Connect each project to one or more requirements in the job description, but do not claim experience the resume does not show.
+- Do not turn a general skill-list item into a project-specific technology claim.
+- Never invent employers, internships, responsibilities, metrics, users, awards, certifications, results, tools, or achievements.
+- Never invent percentages or numbers. Preserve numbers only when they already appear in the source.
+- Do not copy resume bullets verbatim.
+- Avoid filler phrases such as "I am excited to apply", "throughout my career", "contribute immediate value", "strong technical background", or "I would welcome the opportunity to bring".
+- For a student/early-career candidate, accurately describe project-based or academic experience without implying professional employment.
+- Write 180-230 words in 4 short paragraphs.
+- End exactly with "Sincerely," followed by the candidate's name.
+- Return ONLY valid JSON:
 {"subject_line":"","cover_letter":"","highlights_used":[],"tone":"Professional & Tailored"}`,
       `CANDIDATE: ${candidateName}\nRESUME:\n${resumeText}\nJOB DESCRIPTION:\n${jobDescription}`
     );
