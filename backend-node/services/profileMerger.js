@@ -6,6 +6,7 @@
  */
 
 const { validateUnifiedProfileSchema } = require('../models/unifiedProfileSchema');
+const { verifySkillsList } = require('./verificationService');
 
 /**
  * Stub for future AI-driven career domain classification (e.g. via Gemini).
@@ -85,25 +86,14 @@ function mergeProfile(resumeAnalysis = {}, githubAnalysis = {}) {
     resumeSkillMap.set(normalize(skill), skill);
   });
 
-  // 3. Compute verifiedSkills (Intersection of resumeSkills & githubSkills)
-  const verifiedSkills = [];
-  const verifiedSkillSet = new Set();
+  // 3. Use the same strict GitHub evidence audit as the trust-score engine.
+  const audit = verifySkillsList(resumeSkills, githubAnalysis);
+  const verifiedSkills = audit.verifiedSkills;
+  const verifiedSkillSet = new Set(verifiedSkills.map(item => normalize(item.skill)));
 
-  resumeSkills.forEach(skill => {
-    const normalized = normalize(skill);
-    if (githubSkillMap.has(normalized)) {
-      verifiedSkills.push({
-        skill: skill,
-        evidence: 'Found in GitHub repositories'
-      });
-      verifiedSkillSet.add(normalized);
-    }
-  });
+  // 4. Claims without concrete repository evidence remain unverified.
+  const unverifiedClaims = [...new Set(audit.unverifiedClaims)];
 
-  // 4. Compute unverifiedClaims (Resume skills missing in GitHub)
-  const unverifiedClaims = resumeSkills.filter(
-    skill => !verifiedSkillSet.has(normalize(skill))
-  );
 
   // Keep recommendations short and actionable: maximum 3 grouped sentences.
   const resumeRecommendations = [];
