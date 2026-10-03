@@ -113,18 +113,42 @@ async function analyzeCandidate({ resumeBuffer, mimeType, jobDescription, github
   // 6. SkillSwap Engine
   const skillSwapMatches = findMatchesForCandidate(candidateProfile.matchedSkills, candidateProfile.missingSkills, candidateName);
 
-  // 7. Ensure Roadmap recommends ONLY genuine missingSkills
-  if (aiResults.gaps && Array.isArray(aiResults.gaps.skill_gaps)) {
-    aiResults.gaps.skill_gaps = candidateProfile.missingSkills.map(skill => ({
-      skill,
-      priority: 'High',
-      estimated_time: '2 weeks',
-      resources: [
-        { name: `${skill} Official Guides`, url: `https://google.com/search?q=${encodeURIComponent(skill + ' documentation')}` }
-      ]
-    }));
-  }
+  // 7. Keep the roadmap synchronized with the master missing-skill list.
+  // Never let an AI response erase deterministic gaps.
+  if (aiResults.gaps) {
+    const existing = aiResults.gaps;
+    const deterministicGaps = candidateProfile.missingSkills || [];
 
+    existing.skill_gaps = deterministicGaps.map(skill => {
+      const aiGap = Array.isArray(existing.skill_gaps)
+        ? existing.skill_gaps.find(g => String(g?.skill || '').toLowerCase() === String(skill).toLowerCase())
+        : null;
+
+      return {
+        skill,
+        priority: aiGap?.priority || 'High',
+        estimated_time: aiGap?.estimated_time || '1-2 weeks',
+        resources: aiGap?.resources?.length
+          ? aiGap.resources
+          : [{ name: `${skill} Official Documentation`, url: `https://www.google.com/search?q=${encodeURIComponent(skill + ' official documentation')}` }]
+      };
+    });
+
+    if (deterministicGaps.length === 0) {
+      existing.skill_gaps = [];
+      existing.weekly_milestones = [];
+      existing.portfolio_projects = [];
+      existing.certifications = [];
+    }
+
+    existing.readiness_percentage = candidateProfile.jobSkills.length
+      ? Math.round((candidateProfile.matchedSkills.length / candidateProfile.jobSkills.length) * 100)
+      : 0;
+
+    existing.gap_summary = deterministicGaps.length
+      ? `Your resume currently evidences ${candidateProfile.matchedSkills.length} of ${candidateProfile.jobSkills.length} target skills. Focus next on ${deterministicGaps.slice(0, 4).join(', ')}.`
+      : 'No major technology gaps were detected from the listed job requirements.';
+  }
   const mergedLegacyProfile = mergeProfile(aiResults, githubAnalysis);
 
   // Debug Logging
