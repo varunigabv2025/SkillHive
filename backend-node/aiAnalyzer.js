@@ -254,7 +254,43 @@ function extractResumeProjects(resumeText = "") {
   }
 
   return projects;
-}function fallbackCoverLetter(resumeText, jobDescription, candidateName = "Candidate", githubAnalysis = null) {
+}async function generateCoverLetter(resumeText, jobDescription, candidateName = "Candidate", githubAnalysis = null) {
+  try {
+    const generated = await callAI(
+      `You are an expert application writer. Create a natural, specific cover letter from the candidate's resume for the exact job description.
+Rules:
+1. The resume is the source of truth. Never invent employers, internships, achievements, metrics, certifications, technologies, responsibilities, or experience.
+2. Identify and clean the exact target role from the job description.
+3. Use 2-3 concrete facts from the resume, preferably named projects and actual implementation details.
+4. Explain how each selected project or experience connects to the job requirements; do not merely list technologies.
+5. Never paste raw resume lines verbatim.
+6. Avoid generic filler and the phrase "I am excited to apply".
+7. Do not use "throughout my career" for a student or early-career candidate.
+8. Write 180-260 words in 4 short paragraphs.
+9. Return ONLY valid JSON: {"subject_line":"","cover_letter":"","highlights_used":[],"tone":"Professional & Tailored"}`,
+      `CANDIDATE: ${candidateName}\nRESUME:\n${resumeText}\nJOB DESCRIPTION:\n${jobDescription}`
+    );
+
+    const letter = String(generated?.cover_letter || '');
+    const genericSignals = [
+      /I am excited to apply/i,
+      /throughout my career/i,
+      /contribute immediate value/i,
+      /technical background could support your team/i,
+      /turning technical requirements into working solutions/i
+    ];
+
+    if (!generated?.cover_letter || genericSignals.some(pattern => pattern.test(letter))) {
+      throw new Error('Generated cover letter was too generic; using project-specific fallback.');
+    }
+
+    return generated;
+  } catch (error) {
+    return fallbackCoverLetter(resumeText, jobDescription, candidateName, githubAnalysis);
+  }
+}
+
+function fallbackCoverLetter(resumeText, jobDescription, candidateName = "Candidate", githubAnalysis = null) {
   const core = fallbackCoreMatch(resumeText, jobDescription);
   const highlights = (core.matched_skills || []).slice(0, 4);
   const jobTitle = extractJobTitle(jobDescription);
