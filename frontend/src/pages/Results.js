@@ -29,6 +29,24 @@ const Results = () => {
         return;
       }
 
+      // If the user opened a specific item from Analysis Logs, always reload
+      // that exact database record. This prevents an older/stale session result
+      // from showing a different score than the selected history card.
+      const selectedAnalysisId = sessionStorage.getItem('selectedAnalysisId');
+      if (selectedAnalysisId) {
+        try {
+          const selected = await getAnalysis(selectedAnalysisId);
+          if (!cancelled && selected) {
+            sessionStorage.setItem('analysisResult', JSON.stringify(selected));
+            setResult(selected);
+            return;
+          }
+        } catch (error) {
+          console.error('Unable to recover selected analysis:', error);
+          sessionStorage.removeItem('selectedAnalysisId');
+        }
+      }
+
       const storedResult = sessionStorage.getItem('analysisResult');
       if (storedResult) {
         try {
@@ -41,8 +59,7 @@ const Results = () => {
         }
       }
 
-      // Recover the most recent saved analysis when the page is opened
-      // directly, after a refresh, or after session state is lost.
+      // Recover the most recent saved analysis when the page is opened directly.
       try {
         const history = await getHistory();
         if (Array.isArray(history) && history.length > 0) {
@@ -50,6 +67,7 @@ const Results = () => {
           const fullAnalysis = await getAnalysis(latest.id);
           if (!cancelled && fullAnalysis) {
             sessionStorage.setItem('analysisResult', JSON.stringify(fullAnalysis));
+            sessionStorage.removeItem('selectedAnalysisId');
             setResult(fullAnalysis);
             return;
           }
