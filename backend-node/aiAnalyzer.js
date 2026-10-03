@@ -396,16 +396,20 @@ async function analyzeGaps(resumeText, jobDescription) {
 async function generateCoverLetter(resumeText, jobDescription, candidateName = "Candidate", githubAnalysis = null) {
   try {
     return await callAI(
-      `You are an expert cover-letter writer creating a truthful, job-specific application letter.
+      `You are an expert application writer. Create a natural, specific cover letter from the candidate's resume for the exact job description.
 Rules:
-1. Use BOTH the resume and job description.
-2. Treat the resume as the source of truth. Never invent employers, experience, achievements, metrics, certifications, technologies, responsibilities, or years of experience.
-3. If the candidate is a student or early-career candidate, describe academic, project, or hands-on experience rather than implying a long professional career.
-4. Mention 2-3 relevant skills or projects actually present in the resume and relevant to the job.
-5. Explain why those skills or projects are relevant to this specific role.
-6. Avoid generic filler and unsupported claims.
-7. Keep the letter around 220-320 words in 3-4 concise paragraphs.
-8. Return ONLY valid JSON: {"subject_line":"","cover_letter":"","highlights_used":[],"tone":"Professional & Tailored"}`,
+1. The resume is the source of truth. Never invent employers, internships, achievements, metrics, certifications, technologies, responsibilities, or experience.
+2. Identify the exact target role from the job description. Clean the title: do not repeat words such as "position" or include an entire requirement sentence as the title.
+3. Open with the exact role and a clear reason the candidate is interested in it. Do not use "I am excited to apply" as the entire opening.
+4. Select ONLY 2-3 resume facts that are genuinely relevant to the job. Prefer named projects, concrete features built, tools used, coursework, or measurable results from the resume.
+5. For each selected project/experience, explain the connection to a requirement in the job description. Do not merely list technologies.
+6. Mention the candidate's actual project name when it makes the letter more concrete. Do not quote raw resume lines or paste project descriptions verbatim.
+7. If GitHub evidence is available, mention it briefly and naturally; do not make GitHub the main selling point.
+8. Avoid generic filler such as "turn requirements into working solutions", "contribute immediate value", "strongly align", "software craftsmanship", or "technical background could support your team" unless followed by concrete evidence.
+9. Never use "throughout my career" for a student or early-career candidate.
+10. Write 220-300 words in 4 short paragraphs: opening, relevant project/experience evidence, second relevant connection, closing.
+11. Do not start more than one paragraph with "I".
+12. Return ONLY valid JSON: {"subject_line":"","cover_letter":"","highlights_used":[],"tone":"Professional & Tailored"}`,
       `CANDIDATE: ${candidateName}\nRESUME:\n${resumeText}\nJOB:\n${jobDescription}`
     );
   } catch (e) {
