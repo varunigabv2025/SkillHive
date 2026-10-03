@@ -254,7 +254,109 @@ function extractResumeProjects(resumeText = "") {
   }
 
   return projects;
-}async function generateCoverLetter(resumeText, jobDescription, candidateName = "Candidate", githubAnalysis = null) {
+}function isRealKey(key) {
+  return Boolean(key && !key.includes('your_'));
+}
+
+async function requestCompletion(prompt) {
+  if (isRealKey(GOOGLE_API_KEY)) {
+    const response = await axios.post(
+      `https://generativelanguage.googleapis.com/v1beta/models/${GEMMA_MODEL}:generateContent`,
+      {
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.3 }
+      },
+      {
+        headers: { 'x-goog-api-key': GOOGLE_API_KEY, 'Content-Type': 'application/json' },
+        timeout: 120000
+      }
+    );
+    const parts = response.data.candidates?.[0]?.content?.parts || [];
+    return parts.filter(p => !p.thought).map(p => p.text || '').join('');
+  }
+
+  if (isRealKey(OPENROUTER_API_KEY)) {
+    const response = await axios.post(
+      'https://openrouter.ai/api/v1/chat/completions',
+      {
+        model: AI_MODEL,
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.3
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        timeout: 60000
+      }
+    );
+    return response.data.choices?.[0]?.message?.content || '';
+  }
+
+  throw new Error('No AI API key configured');
+}
+
+async function callAI(instructions, input) {
+  const text = (await requestCompletion(`${instructions}\n\n${input}`))
+    .replace(/^\\s*\`\`\`json\\s*/i, '')
+    .replace(/^\\s*\`\`\`\\s*/i, '')
+    .replace(/\\s*\`\`\`\\s*$/i, '')
+    .trim();
+
+  const start = text.indexOf('{');
+  const end = text.lastIndexOf('}');
+  if (start < 0 || end < start) throw new Error('AI response did not contain JSON');
+  return JSON.parse(text.slice(start, end + 1));
+}
+
+async function analyzeCoreMatch(resumeText, jobDescription) {
+  try {
+    return await callAI(
+      'Compare the resume with the job description. Return ONLY JSON with overall_score, section_scores {skills,experience,education,keywords}, matched_skills, missing_skills, improvement_tips, keyword_gaps, summary. Scores must be integers from 0 to 100. Never invent resume facts.',
+      `RESUME:\n${resumeText}\n\nJOB DESCRIPTION:\n${jobDescription}`
+    );
+  } catch (error) {
+    return fallbackCoreMatch(resumeText, jobDescription);
+  }
+}
+
+async function simulateATS(resumeText, jobDescription) {
+  try {
+    const result = await callAI(
+      'Act as an ATS scanner. Return ONLY JSON with ats_score, parsing_issues, detected_sections, missing_sections, keyword_density {high_match,partial_match,missing}, formatting_warnings, ats_verdict. Never invent sections.',
+      `RESUME:\n${resumeText}\n\nJOB DESCRIPTION:\n${jobDescription}`
+    );
+    result.detected_sections = detectSections(resumeText);
+    return result;
+  } catch (error) {
+    return fallbackATS(resumeText, jobDescription);
+  }
+}
+
+async function rewriteBullets(resumeText, jobDescription) {
+  try {
+    return await callAI(
+      'Improve resume bullets for ATS relevance without inventing facts. Return ONLY JSON: {"rewrites":[{"original":"","improved":"","reason":"","confidence":0}]}.',
+      `RESUME:\n${resumeText}\n\nJOB DESCRIPTION:\n${jobDescription}`
+    );
+  } catch (error) {
+    return fallbackRewrites(resumeText);
+  }
+}
+
+async function analyzeGaps(resumeText, jobDescription) {
+  try {
+    return await callAI(
+      'Identify genuine skill gaps between the resume and job description. Return ONLY JSON: {"readiness_percentage":0,"gap_summary":"","skill_gaps":[],"weekly_milestones":[],"certifications":[],"portfolio_projects":[],"timeline":"","milestones":[]}. Never call an existing resume skill a gap.',
+      `RESUME:\n${resumeText}\n\nJOB DESCRIPTION:\n${jobDescription}`
+    );
+  } catch (error) {
+    return fallbackGaps(resumeText, jobDescription);
+  }
+}
+
+async function generateCoverLetter(resumeText, jobDescription, candidateName = "Candidate", githubAnalysis = null) {
   try {
     const generated = await callAI(
       `You are an expert application writer. Create a natural, specific cover letter from the candidate's resume for the exact job description.
