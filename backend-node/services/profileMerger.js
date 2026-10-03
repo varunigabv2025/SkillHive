@@ -131,7 +131,7 @@ function mergeProfile(resumeAnalysis = {}, githubAnalysis = {}) {
     'Keep project descriptions focused on what you built, the technologies you used, and the concrete problem or result you can demonstrate.'
   );
 
-  const finalResumeRecommendations = [...new Set(resumeRecommendations)].slice(0, 3);
+  const finalResumeRecommendations = [...new Set(resumeRecommendations)].slice(0, 2);
 
 
   // 6. Aggregate Strengths
