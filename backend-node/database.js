@@ -91,8 +91,14 @@ async function ensureInitialized() {
 function run(sql, params = [], callback) {
   ensureInitialized()
     .then(() => {
-      const isInsert = /^\\s*INSERT\\s+/i.test(sql) && !/\\bRETURNING\\b/i.test(sql);
-      const translatedSql = sql.replace(/\\?/g, (_, offset) => `${[...sql.slice(0, offset)].filter(ch => ch === '?').length + 1}`);\n      const query = isInsert ? `${translatedSql.trim()} RETURNING id` : translatedSql;
+      const isInsert = /^\s*INSERT\s+/i.test(sql);
+      const parts = sql.split('?');
+      const translatedSql = parts.map((part, index) => (
+        index < parts.length - 1 ? part + '$' + (index + 1) : part
+      )).join('');
+      const query = isInsert && !/\bRETURNING\b/i.test(translatedSql)
+        ? `${translatedSql.trim()} RETURNING id`
+        : translatedSql;
 
       return pool.query(query, params);
     })
@@ -110,7 +116,6 @@ function run(sql, params = [], callback) {
       if (callback) callback.call({}, err);
     });
 }
-
 function all(sql, params = [], callback) {
   ensureInitialized()
     .then(() => pool.query(sql, params))
