@@ -95,7 +95,7 @@ const Home = () => {
                   </div>
                   <FileText className="w-5 h-5 text-slate-500" />
                 </div>
-                <div {...getRootProps()} className={\`min-h-[230px] rounded-2xl border border-dashed flex items-center justify-center text-center cursor-pointer transition-all \${isDragActive ? 'border-cyan-400 bg-cyan-500/10' : file ? 'border-emerald-400/40 bg-emerald-400/[0.05]' : 'border-white/15 bg-white/[0.02] hover:border-cyan-400/50 hover:bg-cyan-400/[0.03]'}\`}>
+                <div {...getRootProps()} className={\`min-h-[230px] rounded-2xl border border-dashed flex items-center justify-center text-center cursor-pointer transition-all ${isDragActive ? 'border-cyan-400 bg-cyan-500/10' : file ? 'border-emerald-400/40 bg-emerald-400/[0.05]' : 'border-white/15 bg-white/[0.02] hover:border-cyan-400/50 hover:bg-cyan-400/[0.03]'}\`}>
                   <input {...getInputProps()} />
                   {file ? (
                     <div className="px-5">
@@ -171,7 +171,7 @@ const Home = () => {
               { icon: Mail, title: 'Application kit', text: 'Generate a tailored cover letter and interview preparation.', color: 'text-blue-300', bg: 'bg-blue-400/10' }
             ].map(({ icon: Icon, title, text, color, bg }) => (
               <div key={title} className="rounded-2xl border border-white/10 bg-white/[0.025] p-5 hover:bg-white/[0.045] transition-colors">
-                <div className={\`w-10 h-10 rounded-xl \${bg} flex items-center justify-center mb-4\`}><Icon className={\`w-5 h-5 \${color}\`} /></div>
+                <div className={\`w-10 h-10 rounded-xl ${bg} flex items-center justify-center mb-4\`}><Icon className={\`w-5 h-5 ${color}\`} /></div>
                 <h3 className="text-sm font-semibold text-white">{title}</h3>
                 <p className="mt-2 text-xs leading-5 text-slate-500">{text}</p>
               </div>
