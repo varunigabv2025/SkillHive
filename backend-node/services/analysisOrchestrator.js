@@ -53,7 +53,7 @@ function buildDeterministicCore(resumeText, jobDescription) {
   };
 }
 
-async function analyzeCandidate({ resumeBuffer, mimeType, jobDescription, githubUrl }) {
+async function analyzeCandidate({ resumeBuffer, mimeType, jobDescription, githubUrl, userName }) {
   const warnings = [];
   const errors = [];
   const resumeText = await extractResumeText(resumeBuffer, mimeType);
@@ -85,7 +85,7 @@ async function analyzeCandidate({ resumeBuffer, mimeType, jobDescription, github
     warnings.push('No GitHub profile supplied; resume claims cannot be GitHub-verified.');
   }
 
-  const candidateName = extractCandidateName(resumeText);
+  const candidateName = String(userName || '').trim() || extractCandidateName(resumeText);
   const jobTitle = extractJobTitle(jobDescription);
 
   // AI is enrichment only. It no longer controls truth-sensitive matching.
