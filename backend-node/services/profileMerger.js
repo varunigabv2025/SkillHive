@@ -100,10 +100,9 @@ function mergeProfile(resumeAnalysis = {}, githubAnalysis = {}) {
 
   const unverified = [...new Set(unverifiedClaims.map(skill => String(skill).trim()).filter(Boolean))];
   const githubOnly = [...new Set(
-    githubSkills
-      .filter(skill => !resumeSkills.some(rs => normalize(rs) === normalize(skill)))
-      .map(skill => String(skill).trim())
-      .filter(Boolean)
+    verifiedSkills
+      .map(item => String(item.skill || '').trim())
+      .filter(skill => skill && !resumeSkills.some(rs => normalize(rs) === normalize(skill)))
   )];
 
   if (unverified.length > 0) {
