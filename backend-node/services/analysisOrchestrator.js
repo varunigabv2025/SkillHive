@@ -21,18 +21,25 @@ function extractCandidateName(resumeText) {
 
 function extractJobTitle(jobDescription) {
   if (!jobDescription) return 'Position';
-  const lines = jobDescription.split('\n');
-  for (let i = 0; i < Math.min(5, lines.length); i++) {
-    const line = lines[i].trim();
-    if (line && !/^we are|^we're|^about the|^job/i.test(line)) {
-      if (line.length < 100) {
-        return line;
-      }
-    }
-  }
-  return 'Position';
-}
+  const lines = String(jobDescription).split(/\r?\n/).map(line => line.trim()).filter(Boolean);
 
+  const explicit = lines.find(line => /^(job\s*title|position|role)\s*[:\-]/i.test(line));
+  if (explicit) {
+    return explicit.replace(/^(job\s*title|position|role)\s*[:\-]\s*/i, '').replace(/\s+position$/i, '').trim();
+  }
+
+  const first = lines[0] || '';
+  const firstSegment = first.split(',')[0].trim();
+  if (
+    firstSegment.length > 3 &&
+    firstSegment.length < 80 &&
+    /\b(developer|engineer|designer|analyst|scientist|intern|manager|architect|consultant|specialist|administrator|lead)\b/i.test(firstSegment)
+  ) {
+    return firstSegment.replace(/\s+position$/i, '').trim();
+  }
+
+  return first && first.length < 100 ? first.replace(/\s+position$/i, '').trim() : 'Position';
+}
 async function analyzeCandidate({ resumeBuffer, mimeType, jobDescription, githubUrl }) {
   const warnings = [];
   const errors = [];
