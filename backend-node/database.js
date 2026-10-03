@@ -92,7 +92,7 @@ function run(sql, params = [], callback) {
   ensureInitialized()
     .then(() => {
       const isInsert = /^\\s*INSERT\\s+/i.test(sql) && !/\\bRETURNING\\b/i.test(sql);
-      const query = isInsert ? `${sql.trim()} RETURNING id` : sql;
+      const translatedSql = sql.replace(/\\?/g, (_, offset) => `${[...sql.slice(0, offset)].filter(ch => ch === '?').length + 1}`);\n      const query = isInsert ? `${translatedSql.trim()} RETURNING id` : translatedSql;
 
       return pool.query(query, params);
     })
