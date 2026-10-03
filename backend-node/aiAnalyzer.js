@@ -299,9 +299,9 @@ async function requestCompletion(prompt) {
 
 async function callAI(instructions, input) {
   const text = (await requestCompletion(`${instructions}\n\n${input}`))
-    .replace(/^\\s*\`\`\`json\\s*/i, '')
-    .replace(/^\\s*\`\`\`\\s*/i, '')
-    .replace(/\\s*\`\`\`\\s*$/i, '')
+    .replace(/^\s*\`\`\`json\\s*/i, '')
+    .replace(/^\s*\`\`\`\\s*/i, '')
+    .replace(/\s*\`\`\`\s*$//i, '')
     .trim();
 
   const start = text.indexOf('{');
@@ -388,11 +388,11 @@ Rules:
       .filter(Boolean);
 
     const mentionsProject = projectEvidence.length === 0 || projectEvidence.some(title => {
-      const words = title.split(/\\s+/).filter(Boolean).slice(0, 3);
+      const words = title.split(/\s+/).filter(Boolean).slice(0, 3);
       return words.length > 0 && words.every(word => letter.toLowerCase().includes(word));
     });
 
-    const wordCount = letter.split(/\\s+/).filter(Boolean).length;
+    const wordCount = letter.split(/\s+/).filter(Boolean).length;
 
     if (
       !generated?.cover_letter ||
