@@ -135,6 +135,10 @@ async function analyzeCandidate({ resumeBuffer, mimeType, jobDescription, github
   return {
     candidateProfile: {
       ...candidateProfile,
+      resumeRecommendations: mergedLegacyProfile.resumeRecommendations || [
+        'Add measurable outcomes to your strongest projects, such as performance improvements, users served, accuracy achieved, or features implemented.',
+        'Include direct GitHub repository links for your most relevant projects to make your technical experience easier to verify.'
+      ],
       user: { name: candidateName, title: jobTitle }
     },
     githubAnalysis,
