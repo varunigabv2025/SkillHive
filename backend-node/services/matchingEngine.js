@@ -1,77 +1,78 @@
 /**
- * Unified Candidate Matching Engine (SkillBridge AI)
- * Single Source of Truth for skill matching and CandidateProfile assembly.
+ * Truth-sensitive candidate matching.
+ * Resume/JD skill extraction is deterministic. GitHub evidence is kept separate.
  */
-
-const { normalizeSkillList } = require('./skillNormalizationService');
+const { normalizeSkills, matchJobToResume } = require('./evidenceEngine');
 const { verifySkillsList } = require('./verificationService');
 
-function buildCandidateProfile({ rawResumeSkills = [], rawGithubSkills = [], rawJobSkills = [], githubAnalysis = null, coreMatch = {}, atsAnalysis = {} }) {
-  const resumeSkills = normalizeSkillList(rawResumeSkills);
-  const githubVerifiedSkills = normalizeSkillList(rawGithubSkills);
-  const jobSkills = normalizeSkillList(rawJobSkills);
+function buildCandidateProfile({
+  rawResumeSkills = [],
+  rawGithubSkills = [],
+  rawJobSkills = [],
+  githubAnalysis = null,
+  coreMatch = {}
+}) {
+  const resumeSkills = normalizeSkills(rawResumeSkills);
+  const githubSkills = normalizeSkills(rawGithubSkills);
+  const jobSkills = normalizeSkills(rawJobSkills);
 
-  // Exact skills candidate possesses (Resume + GitHub)
-  const candidateSkillsSet = new Set([...resumeSkills, ...githubVerifiedSkills]);
-  const allCandidateSkills = [...candidateSkillsSet];
+  const resumeSet = new Set(resumeSkills);
+  const githubSet = new Set(githubSkills);
+  const candidateEvidence = new Set([...resumeSkills, ...githubSkills]);
 
-  // Matched vs Missing Skills against Job Description
   const matchedSkills = [];
   const missingSkills = [];
   const partiallyMatchedSkills = [];
 
-  const candidateLowerMap = new Map();
-  allCandidateSkills.forEach(s => candidateLowerMap.set(s.toLowerCase(), s));
-
-  jobSkills.forEach(jSkill => {
-    const jLower = jSkill.toLowerCase();
-    if (candidateLowerMap.has(jLower)) {
-      matchedSkills.push(candidateLowerMap.get(jLower));
-    } else {
-      // Check partial match
-      const partial = allCandidateSkills.find(cSkill => cSkill.toLowerCase().includes(jLower) || jLower.includes(cSkill.toLowerCase()));
-      if (partial) {
-        partiallyMatchedSkills.push(jSkill);
-      } else {
-        missingSkills.push(jSkill);
-      }
-    }
+  jobSkills.forEach(skill => {
+    if (resumeSet.has(skill) || githubSet.has(skill)) matchedSkills.push(skill);
+    else missingSkills.push(skill);
   });
 
-  // Ensure matchedSkills is not empty if resume has skills
-  if (matchedSkills.length === 0 && resumeSkills.length > 0) {
-    matchedSkills.push(...resumeSkills.slice(0, 5));
-  }
+  const resumeMatchedSkills = jobSkills.filter(skill => resumeSet.has(skill));
+  const githubMatchedSkills = jobSkills.filter(skill => githubSet.has(skill));
+  const githubOnlyMatchedSkills = githubMatchedSkills.filter(skill => !resumeSet.has(skill));
 
-  // Verification Audit
-  const { verifiedSkills, unverifiedClaims, verificationRatio } = verifySkillsList(matchedSkills, githubAnalysis);
+  const { verifiedSkills, unverifiedClaims, verificationRatio } =
+    verifySkillsList(resumeSkills, githubAnalysis);
 
-  const matchPercentage = jobSkills.length > 0
-    ? Math.min(100, Math.max(30, Math.round((matchedSkills.length / jobSkills.length) * 100)))
-    : (coreMatch.overall_score || 75);
+  const matchPercentage = jobSkills.length
+    ? Math.round((matchedSkills.length / jobSkills.length) * 100)
+    : 0;
 
-  const confidenceScores = {
-    resumeConfidence: resumeSkills.length > 0 ? 90 : 50,
-    githubConfidence: githubAnalysis && !githubAnalysis.error ? 95 : 60,
-    matchConfidence: matchPercentage
-  };
+  const resumeAlignment = matchJobToResume(jobSkills, resumeSkills);
 
   return {
     resumeSkills,
-    githubVerifiedSkills,
-    inferredSkills: Array.from(candidateSkillsSet),
+    githubVerifiedSkills: githubSkills,
+    inferredSkills: [...candidateEvidence],
     jobSkills,
-    matchedSkills: normalizeSkillList(matchedSkills),
-    missingSkills: normalizeSkillList(missingSkills),
-    partiallyMatchedSkills: normalizeSkillList(partiallyMatchedSkills),
+    matchedSkills,
+    missingSkills,
+    partiallyMatchedSkills,
+    resumeMatchedSkills,
+    githubMatchedSkills,
+    githubOnlyMatchedSkills,
     verifiedSkills,
-    unverifiedClaims: normalizeSkillList(unverifiedClaims),
-    confidenceScores,
+    unverifiedClaims,
+    verificationRatio,
     matchPercentage,
-    verificationRatio
+    resumeMatchPercentage: jobSkills.length
+      ? Math.round((resumeMatchedSkills.length / jobSkills.length) * 100)
+      : 0,
+    confidenceScores: {
+      resumeConfidence: resumeSkills.length ? 100 : 0,
+      githubConfidence: githubAnalysis && !githubAnalysis.error ? 100 : 0,
+      matchConfidence: jobSkills.length ? 100 : 0
+    },
+    resumeAlignment,
+    sourceOfTruth: {
+      resume: 'Deterministic text extraction',
+      jobDescription: 'Deterministic text extraction',
+      github: 'Repository evidence collected by GitHub analyzer',
+      ai: 'Enrichment only; not authoritative for matching or verification'
+    }
   };
 }
 
-module.exports = {
-  buildCandidateProfile
-};
+module.exports = { buildCandidateProfile };
