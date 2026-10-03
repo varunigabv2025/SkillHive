@@ -7,10 +7,17 @@ const GEMMA_MODEL = process.env.GEMMA_MODEL || 'gemma-4-26b-a4b-it';
 const AI_MODEL = process.env.AI_MODEL || 'google/gemma-3-27b-it';
 
 const TECH_KEYWORDS = [
-  'React', 'Node.js', 'Express', 'JavaScript', 'TypeScript', 'Python', 'Java', 'C++',
-  'Docker', 'Kubernetes', 'AWS', 'GCP', 'Azure', 'PostgreSQL', 'MySQL', 'MongoDB',
-  'Redis', 'GraphQL', 'REST API', 'Git', 'CI/CD', 'Tailwind', 'HTML', 'CSS', 'Linux',
-  'Unit Testing', 'Jest', 'System Design', 'Microservices', 'Agile'
+  'React', 'React Native', 'Next.js', 'Node.js', 'Express', 'JavaScript', 'TypeScript',
+  'Python', 'Java', 'C++', 'C', 'R', 'MATLAB',
+  'SQL', 'MySQL', 'PostgreSQL', 'MongoDB', 'Redis',
+  'Docker', 'Kubernetes', 'AWS', 'GCP', 'Azure', 'Terraform', 'CI/CD', 'Linux',
+  'GraphQL', 'REST API', 'Git', 'GitHub Actions',
+  'Tailwind CSS', 'HTML5', 'CSS3', 'Jest', 'Unit Testing',
+  'PyTorch', 'TensorFlow', 'Scikit-learn', 'Pandas', 'NumPy', 'OpenCV',
+  'Machine Learning', 'Deep Learning', 'NLP', 'Natural Language Processing',
+  'LLM', 'Generative AI', 'Computer Vision', 'Data Science',
+  'FastAPI', 'Django', 'Flask', 'Spring Boot', 'Microservices',
+  'System Design', 'Agile', 'JWT', 'WebSockets'
 ];
 
 async function callAI(systemPrompt, userPrompt) {
@@ -116,8 +123,49 @@ function detectSections(resumeText) {
 
 function extractKeywords(text) {
   if (!text) return [];
-  const lower = text.toLowerCase();
-  return TECH_KEYWORDS.filter(kw => lower.includes(kw.toLowerCase()));
+  const source = String(text).toLowerCase();
+
+  const aliases = {
+    'react': ['react', 'reactjs', 'react.js'],
+    'react native': ['react native'],
+    'next.js': ['next.js', 'nextjs', 'next'],
+    'node.js': ['node.js', 'nodejs', 'node'],
+    'express': ['express', 'expressjs', 'express.js'],
+    'javascript': ['javascript', 'js', 'ecmascript'],
+    'typescript': ['typescript', 'ts'],
+    'html5': ['html5', 'html'],
+    'css3': ['css3', 'css'],
+    'tailwind css': ['tailwind css', 'tailwindcss', 'tailwind'],
+    'sql': ['sql'],
+    'mysql': ['mysql'],
+    'postgresql': ['postgresql', 'postgres', 'psql'],
+    'mongodb': ['mongodb', 'mongo'],
+    'rest api': ['rest api', 'rest apis', 'restful api', 'restful apis', 'restful'],
+    'ci/cd': ['ci/cd', 'cicd', 'github actions'],
+    'pytorch': ['pytorch', 'torch'],
+    'tensorflow': ['tensorflow'],
+    'scikit-learn': ['scikit-learn', 'scikit learn', 'sklearn'],
+    'pandas': ['pandas'],
+    'numpy': ['numpy'],
+    'nlp': ['nlp', 'natural language processing'],
+    'machine learning': ['machine learning', 'ml'],
+    'deep learning': ['deep learning'],
+    'computer vision': ['computer vision'],
+    'generative ai': ['generative ai', 'genai'],
+    'llm': ['llm', 'large language model', 'large language models'],
+    'jwt': ['jwt', 'json web token', 'json web tokens']
+  };
+
+  const found = [];
+  for (const keyword of TECH_KEYWORDS) {
+    const candidates = aliases[keyword.toLowerCase()] || [keyword.toLowerCase()];
+    const hit = candidates.some(alias => {
+      const escaped = alias.replace(/[.*+?^$\\{}()|[\]\\]/g, '\\$&');
+      return new RegExp('(^|[^a-z0-9+#.-])' + escaped + '([^a-z0-9+#.-]|$)', 'i').test(source);
+    });
+    if (hit) found.push(keyword);
+  }
+  return [...new Set(found)];
 }
 
 function fallbackCoreMatch(resumeText, jobDescription) {
@@ -227,66 +275,79 @@ function fallbackATS(resumeText, jobDescription) {
 }
 
 function fallbackRewrites(resumeText) {
-  const lines = String(resumeText || "")
-    .split(/\r?\n/)
-    .map(line => line.replace(/^[-•*]\s*/, "").trim())
-    .filter(Boolean);
-
+  const rawLines = String(resumeText || "").split(/\r?\n/);
   const sectionPattern = /^(education|skills?|technical skills|projects?|experience|work experience|internship|certifications?|achievements?|awards?|summary|objective|contact|interests?|languages?|references?)\s*:?$/i;
   const contactPattern = /(@|https?:\/\/|linkedin\.com|github\.com|\+?\d[\d\s().-]{7,})/i;
-  const educationPattern = /\b(b\.?tech|bachelor|m\.?tech|master|degree|university|college|vit chennai|cgpa|gpa)\b/i;
-  const bulletPattern = /^(developed|built|created|implemented|designed|engineered|integrated|deployed|automated|configured|optimized|analyzed|led|worked|used|created|contributed|responsible|experience|project)\b/i;
+  const educationPattern = /\b(b\.?tech|bachelor|m\.?tech|master|degree|university|college|cgpa|gpa)\b/i;
 
-  const candidates = lines.filter(line => {
-    if (line.length < 35 || line.length > 320) return false;
-    if (sectionPattern.test(line) || contactPattern.test(line) || educationPattern.test(line)) return false;
-    return bulletPattern.test(line) || /^[-•*]/.test(line);
-  }).slice(0, 5);
+  const candidates = rawLines
+    .map(line => line.trim())
+    .filter(line => {
+      const clean = line.replace(/^[-•*]\s*/, "").trim();
+      if (clean.length < 35 || clean.length > 320) return false;
+      if (sectionPattern.test(clean) || contactPattern.test(clean) || educationPattern.test(clean)) return false;
+      return /^[-•*]/.test(line) ||
+        /^(developed|built|created|implemented|designed|engineered|integrated|deployed|automated|configured|optimized|analyzed|led|used|worked on|contributed)\b/i.test(clean);
+    })
+    .slice(0, 5)
+    .map(line => line.replace(/^[-•*]\s*/, "").trim());
 
-  const rewrites = candidates.map((line, idx) => {
-    const original = line.replace(/^[-•*]\s*/, "").trim();
+  const rewriteOne = (original) => {
     let improved = original;
 
-    const verbMap = [
-      [/^developed\b/i, "Built"],
-      [/^created\b/i, "Built"],
-      [/^worked on\b/i, "Contributed to"],
-      [/^used\b/i, "Applied"],
-      [/^helped\b/i, "Contributed to"],
-      [/^responsible for\b/i, "Managed"]
+    const transformations = [
+      [/^Developed\s+(?:an?|the)\s+(.+?)\s+that\s+(.+)$/i, "Built $1 that $2"],
+      [/^Created\s+(?:an?|the)\s+(.+?)\s+for\s+(.+)$/i, "Built $1 for $2"],
+      [/^Implemented\s+(.+?)\s+to\s+calculate\s+(.+)$/i, "Applied $1 to measure $2"],
+      [/^Implemented\s+(.+?)\s+to\s+(.+)$/i, "Applied $1 to $2"],
+      [/^Built\s+(?:an?|the)\s+(.+?)\s+for\s+displaying\s+(.+)$/i, "Created $1 that displays $2"],
+      [/^Built\s+(?:an?|the)\s+(.+?)\s+using\s+(.+)$/i, "Developed $1 with $2"],
+      [/^Used\s+(.+?)\s+to\s+(.+)$/i, "Applied $1 to $2"],
+      [/^Worked on\s+(.+)$/i, "Contributed to $1"]
     ];
 
-    for (const [pattern, verb] of verbMap) {
+    for (const [pattern, replacement] of transformations) {
       if (pattern.test(improved)) {
-        improved = improved.replace(pattern, verb);
-        break;
+        const candidate = improved.replace(pattern, replacement);
+        if (candidate !== original) {
+          improved = candidate;
+          break;
+        }
       }
     }
 
     if (improved === original) {
-      improved = original;
+      improved = original
+        .replace(/^Developed\b/i, "Built")
+        .replace(/^Created\b/i, "Built")
+        .replace(/^Implemented\b/i, "Applied")
+        .replace(/^Used\b/i, "Applied");
     }
 
+    return improved;
+  };
+
+  const rewrites = candidates.map((original, idx) => {
+    const improved = rewriteOne(original);
     return {
       original,
       improved,
-      reason: improved === original
-        ? "Preserved the original facts while keeping the bullet concise and ATS-readable."
-        : "Strengthened the opening action verb without adding unsupported claims or metrics.",
-      confidence: 90 - (idx * 2)
+      reason: improved !== original
+        ? "Rephrased the original action while preserving its factual content and avoiding unsupported metrics."
+        : "The original bullet was already concise; no safe factual expansion was applied.",
+      confidence: 94 - idx * 2
     };
-  });
+  }).filter(item => item.improved !== item.original);
 
   return {
     rewrites: rewrites.length ? rewrites : [{
-      original: "No suitable project or experience bullet was detected.",
-      improved: "Add a project or experience bullet describing what you built, the technologies used, and the result you achieved.",
-      reason: "The resume did not contain a safe bullet that could be rewritten without inventing information.",
-      confidence: 100
+      original: candidates[0] || "No suitable project or experience bullet was detected.",
+      improved: candidates[0] ? rewriteOne(candidates[0]) : "Add a project or experience bullet describing what you built, the technologies you used, and the result you achieved.",
+      reason: candidates[0] ? "Applied a conservative factual rewrite." : "No safe resume bullet was available for rewriting.",
+      confidence: candidates[0] ? 85 : 100
     }]
   };
 }
-
 function validateRewrites(result, resumeText) {
   if (!result || !Array.isArray(result.rewrites) || result.rewrites.length === 0) return false;
 
@@ -341,47 +402,80 @@ Return ONLY JSON:
   }
 }
 
+function buildGapRoadmap(missingSkills) {
+  const skills = [...new Set(missingSkills || [])];
+  const weekly_milestones = skills.slice(0, 4).map((skill, index) => ({
+    week: index + 1,
+    title: `Build working proficiency in ${skill}`,
+    description: `Learn the core concepts of ${skill}, complete a small hands-on exercise, and document the implementation so it can become evidence for future applications.`
+  }));
+
+  const portfolio_projects = skills.slice(0, 3).map(skill => ({
+    title: `${skill} Practical Mini Project`,
+    description: `Build a small project that uses ${skill} to solve a concrete problem and document the implementation, decisions, and result.`,
+    tech_stack: [skill]
+  }));
+
+  const certifications = skills.slice(0, 2).map(skill => ({
+    name: `${skill} fundamentals / official learning path`,
+    provider: "Official documentation or recognized training provider"
+  }));
+
+  return { weekly_milestones, portfolio_projects, certifications };
+}
+
 function fallbackGaps(resumeText, jobDescription) {
   const resumeSkills = extractKeywords(resumeText);
   const jobSkills = extractKeywords(jobDescription);
-  const missing = [...new Set(jobSkills.filter(skill =>
-    !resumeSkills.some(rs => rs.toLowerCase() === skill.toLowerCase())
-  ))];
-
-  const readiness = jobSkills.length
-    ? Math.max(0, Math.round(((jobSkills.length - missing.length) / jobSkills.length) * 100))
-    : 0;
+  const resumeSet = new Set(resumeSkills.map(skill => skill.toLowerCase()));
+  const missing = jobSkills.filter(skill => !resumeSet.has(skill.toLowerCase()));
+  const matched = jobSkills.filter(skill => resumeSet.has(skill.toLowerCase()));
+  const roadmap = buildGapRoadmap(missing);
 
   return {
-    readiness_percentage: readiness,
+    readiness_percentage: jobSkills.length ? Math.round((matched.length / jobSkills.length) * 100) : 0,
     gap_summary: missing.length
-      ? `The main skill gaps identified from the job description are ${missing.join(", ")}.`
+      ? `Your resume currently evidences ${matched.length} of ${jobSkills.length} target technologies. The main gaps are ${missing.join(", ")}.`
       : "No major technology gaps were detected from the listed job requirements.",
     skill_gaps: missing.map(skill => ({
       skill,
-      current_level: "Not evidenced in the resume",
-      target_level: "Working proficiency",
-      priority: "High"
+      priority: "High",
+      estimated_time: "1-2 weeks",
+      resources: [
+        { name: `${skill} Official Documentation`, url: `https://www.google.com/search?q=${encodeURIComponent(skill + " official documentation")}` }
+      ]
     })),
-    weekly_milestones: [],
-    certifications: [],
-    portfolio_projects: [],
-    timeline: missing.length ? "Build evidence for the missing skills through small projects and hands-on practice." : "Continue strengthening existing project evidence.",
-    milestones: []
+    ...roadmap,
+    timeline: missing.length ? `Focus on one missing skill per week: ${missing.slice(0, 4).join(", ")}.` : "Continue strengthening existing project evidence.",
+    milestones: roadmap.weekly_milestones
   };
 }
-
 async function analyzeGaps(resumeText, jobDescription) {
+  const deterministic = fallbackGaps(resumeText, jobDescription);
   try {
-    return await callAI(
-      'Identify genuine skill gaps between the resume and job description. Return ONLY JSON: {"readiness_percentage":0,"gap_summary":"","skill_gaps":[],"weekly_milestones":[],"certifications":[],"portfolio_projects":[],"timeline":"","milestones":[]}. Never call an existing resume skill a gap.',
+    const ai = await callAI(
+      'Identify genuine skill gaps between the resume and job description. Return ONLY JSON with readiness_percentage, gap_summary, skill_gaps, weekly_milestones, certifications, portfolio_projects, timeline, milestones. Never call an existing resume skill a gap. Every target technology missing from the resume must be represented in skill_gaps.',
       `RESUME:\n${resumeText}\n\nJOB DESCRIPTION:\n${jobDescription}`
     );
+
+    const aiGaps = Array.isArray(ai?.skill_gaps) ? ai.skill_gaps : [];
+    const aiNames = new Set(aiGaps.map(g => String(g?.skill || "").toLowerCase()));
+    const hasAllDeterministicGaps = deterministic.skill_gaps.every(g => aiNames.has(String(g.skill).toLowerCase()));
+
+    if (!hasAllDeterministicGaps) {
+      return deterministic;
+    }
+
+    return {
+      ...deterministic,
+      ...ai,
+      skill_gaps: aiGaps,
+      readiness_percentage: deterministic.readiness_percentage
+    };
   } catch (error) {
-    return fallbackGaps(resumeText, jobDescription);
+    return deterministic;
   }
 }
-
 async function generateCoverLetter(resumeText, jobDescription, candidateName = "Candidate", githubAnalysis = null) {
   try {
     const generated = await callAI(
@@ -445,35 +539,36 @@ STRICT RULES:
 function fallbackCoverLetter(resumeText, jobDescription, candidateName = "Candidate", githubAnalysis = null) {
   const core = fallbackCoreMatch(resumeText, jobDescription);
   const jobTitle = extractJobTitle(jobDescription);
-  const projects = extractResumeProjects(resumeText);
+  const projects = extractResumeProjects(resumeText).slice(0, 2);
   const matched = (core.matched_skills || []).slice(0, 4);
 
-  const relevantSkills = matched.length
-    ? matched.slice(0, 3).join(", ")
-    : "the technical skills demonstrated in my projects";
+  const skillSentence = matched.length
+    ? `The role's requirements overlap with my experience in ${matched.join(", ")}, which I have applied through project-based development work.`
+    : "My project work has given me hands-on experience turning technical requirements into working applications.";
 
-  const projectOne = projects[0];
-  const projectTwo = projects[1];
+  const projectParagraphs = projects.map((project, index) => {
+    const details = String(project.details || "").trim();
+    if (!details) return `In ${project.title}, I worked on a practical software project and focused on implementing the core functionality described in my resume.`;
+    return index === 0
+      ? `A relevant example is ${project.title}. ${details.replace(/^[.!?]+/, "").trim().replace(/\s+$/, "")}.`
+      : `I also worked on ${project.title}. ${details.replace(/^[.!?]+/, "").trim().replace(/\s+$/, "")}.`;
+  });
 
-  const firstProject = projectOne
-    ? `One relevant example is my ${projectOne.title} project. ${projectOne.details ? projectOne.details.replace(/^[.!?]+/, "").trim() + (/[.!?]$/.test(projectOne.details.trim()) ? "" : ".") : "This project gave me practical experience building and implementing a complete solution."}`
-    : `My project work has given me practical experience applying ${relevantSkills} to build complete software solutions.`;
-
-  const secondProject = projectTwo
-    ? `I also worked on ${projectTwo.title}. ${projectTwo.details ? projectTwo.details.replace(/^[.!?]+/, "").trim() + (/[.!?]$/.test(projectTwo.details.trim()) ? "" : ".") : "This work strengthened my ability to implement features and solve technical problems."}`
-    : `My broader development work has strengthened my ability to understand requirements, implement features, and work across different parts of an application.`;
+  while (projectParagraphs.length < 2) {
+    projectParagraphs.push("These projects strengthened my ability to break requirements into implementable features, test the result, and explain the technical decisions behind my work.");
+  }
 
   return {
     subject_line: `Application for ${jobTitle}`,
     cover_letter: `Dear Hiring Manager,
 
-The ${jobTitle} opportunity aligns with the kind of software development work I have been building through my academic and personal projects. My experience includes ${relevantSkills}, with a focus on turning requirements into functional applications.
+I am applying for the ${jobTitle} position. My background is centered on hands-on academic and personal software projects, where I have focused on building working applications and applying the technologies relevant to the role. ${skillSentence}
 
-${firstProject}
+${projectParagraphs[0]}
 
-${secondProject}
+${projectParagraphs[1]}
 
-I would welcome the opportunity to bring this project-based experience to your team and continue developing as a software developer. Thank you for considering my application.
+I would welcome the opportunity to discuss these projects and how the skills demonstrated through them relate to the work involved in this role. Thank you for considering my application.
 
 Sincerely,
 ${candidateName}`,
@@ -481,7 +576,6 @@ ${candidateName}`,
     tone: "Professional & Tailored"
   };
 }
-
 function fallbackInterviewPrep(resumeText, jobDescription, candidateName = "Candidate") {
   const core = fallbackCoreMatch(resumeText, jobDescription);
   const matched = core.matched_skills || [];
