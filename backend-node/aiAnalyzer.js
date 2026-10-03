@@ -317,11 +317,21 @@ function fallbackRewrites(resumeText) {
     }
 
     if (improved === original) {
-      improved = original
-        .replace(/^Developed\b/i, "Built")
-        .replace(/^Created\b/i, "Built")
-        .replace(/^Implemented\b/i, "Applied")
-        .replace(/^Used\b/i, "Applied");
+      const verbFallbacks = [
+        [/^Developed\b/i, "Built"],
+        [/^Created\b/i, "Built"],
+        [/^Implemented\b/i, "Applied"],
+        [/^Used\b/i, "Applied"],
+        [/^Designed\b/i, "Engineered"],
+        [/^Worked on\b/i, "Contributed to"],
+        [/^Built\b/i, "Engineered"]
+      ];
+      for (const [pattern, replacement] of verbFallbacks) {
+        if (pattern.test(original)) {
+          improved = original.replace(pattern, replacement);
+          break;
+        }
+      }
     }
 
     return improved;
