@@ -113,41 +113,65 @@ async function analyzeCandidate({ resumeBuffer, mimeType, jobDescription, github
   // 6. SkillSwap Engine
   const skillSwapMatches = findMatchesForCandidate(candidateProfile.matchedSkills, candidateProfile.missingSkills, candidateName);
 
-  // 7. Keep the roadmap synchronized with the master missing-skill list.
-  // Never let an AI response erase deterministic gaps.
+  // 7. Build a complete roadmap from the master skill gaps.
+  // AI output is treated as enrichment; deterministic matching remains authoritative.
   if (aiResults.gaps) {
-    const existing = aiResults.gaps;
     const deterministicGaps = candidateProfile.missingSkills || [];
+    const existingGaps = Array.isArray(aiResults.gaps.skill_gaps) ? aiResults.gaps.skill_gaps : [];
+    const findExisting = skill => existingGaps.find(g =>
+      String(g?.skill || '').toLowerCase() === String(skill).toLowerCase()
+    );
 
-    existing.skill_gaps = deterministicGaps.map(skill => {
-      const aiGap = Array.isArray(existing.skill_gaps)
-        ? existing.skill_gaps.find(g => String(g?.skill || '').toLowerCase() === String(skill).toLowerCase())
-        : null;
-
+    aiResults.gaps.skill_gaps = deterministicGaps.map(skill => {
+      const aiGap = findExisting(skill);
       return {
         skill,
         priority: aiGap?.priority || 'High',
         estimated_time: aiGap?.estimated_time || '1-2 weeks',
         resources: aiGap?.resources?.length
           ? aiGap.resources
-          : [{ name: `${skill} Official Documentation`, url: `https://www.google.com/search?q=${encodeURIComponent(skill + ' official documentation')}` }]
+          : [{
+              name: `${skill} Official Documentation`,
+              url: `https://www.google.com/search?q=${encodeURIComponent(skill + ' official documentation')}`
+            }]
       };
     });
 
-    if (deterministicGaps.length === 0) {
-      existing.skill_gaps = [];
-      existing.weekly_milestones = [];
-      existing.portfolio_projects = [];
-      existing.certifications = [];
-    }
-
-    existing.readiness_percentage = candidateProfile.jobSkills.length
+    aiResults.gaps.readiness_percentage = candidateProfile.jobSkills.length
       ? Math.round((candidateProfile.matchedSkills.length / candidateProfile.jobSkills.length) * 100)
       : 0;
 
-    existing.gap_summary = deterministicGaps.length
-      ? `Your resume currently evidences ${candidateProfile.matchedSkills.length} of ${candidateProfile.jobSkills.length} target skills. Focus next on ${deterministicGaps.slice(0, 4).join(', ')}.`
-      : 'No major technology gaps were detected from the listed job requirements.';
+    if (deterministicGaps.length) {
+      aiResults.gaps.gap_summary =
+        `Your resume currently evidences ${candidateProfile.matchedSkills.length} of ${candidateProfile.jobSkills.length} target skills. Focus next on ${deterministicGaps.slice(0, 4).join(', ')}.`;
+
+      aiResults.gaps.weekly_milestones = deterministicGaps.slice(0, 4).map((skill, index) => ({
+        week: index + 1,
+        title: `Learn and apply ${skill}`,
+        description: `Study the core concepts of ${skill}, complete a focused hands-on exercise, and document what you built so the skill can be demonstrated in future applications.`
+      }));
+
+      aiResults.gaps.portfolio_projects = deterministicGaps.slice(0, 3).map(skill => ({
+        title: `${skill} Practical Project`,
+        description: `Build a small end-to-end project using ${skill} to solve a concrete problem. Document the implementation and decisions in the project README.`,
+        tech_stack: [skill]
+      }));
+
+      aiResults.gaps.certifications = deterministicGaps.slice(0, 2).map(skill => ({
+        name: `${skill} Fundamentals / Official Learning Path`,
+        provider: 'Official documentation or recognized training provider'
+      }));
+
+      aiResults.gaps.milestones = aiResults.gaps.weekly_milestones;
+      aiResults.gaps.timeline = `Work through the missing skills in order: ${deterministicGaps.slice(0, 4).join(', ')}.`;
+    } else {
+      aiResults.gaps.gap_summary = 'No major technology gaps were detected from the listed job requirements.';
+      aiResults.gaps.weekly_milestones = [];
+      aiResults.gaps.portfolio_projects = [];
+      aiResults.gaps.certifications = [];
+      aiResults.gaps.milestones = [];
+      aiResults.gaps.timeline = 'Continue strengthening and documenting the project evidence already present in the resume.';
+    }
   }
   const mergedLegacyProfile = mergeProfile(aiResults, githubAnalysis);
 
