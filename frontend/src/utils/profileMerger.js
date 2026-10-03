@@ -149,17 +149,15 @@ export function mergeProfile(resumeAnalysis = {}, githubAnalysis = {}) {
     }
   });
 
-  // Generate actionable resume recommendations.
+  // Generate concise, sentence-style resume recommendations.
   const resumeRecommendations = [];
 
-  // 1. Unverified resume claims need stronger evidence.
   unverifiedClaims.forEach(skill => {
     resumeRecommendations.push(
-      `Strengthen the evidence for ${skill} by adding a relevant project, repository, contribution, or measurable experience if you have one.`
+      `For ${skill}, mention the specific project, feature, or implementation where you used it instead of listing the skill alone.`
     );
   });
 
-  // 2. GitHub-proven skills that are missing from the resume.
   githubSkills
     .filter(
       skill =>
@@ -169,19 +167,25 @@ export function mergeProfile(resumeAnalysis = {}, githubAnalysis = {}) {
     )
     .forEach(skill => {
       resumeRecommendations.push(
-        `Consider adding ${skill} to your resume because it is supported by your GitHub activity.`
+        `Highlight ${skill} in the relevant project or experience section when your GitHub work provides concrete evidence of using it.`
       );
     });
 
-  // 3. If there are no automatic recommendations, give a useful fallback.
   if (resumeRecommendations.length === 0) {
     resumeRecommendations.push(
-      'Add measurable outcomes to your strongest projects, such as performance improvements, users served, accuracy achieved, or features implemented.'
+      'Describe your strongest projects with the technology used, what you built, and the problem or requirement you solved.'
     );
     resumeRecommendations.push(
-      'Include direct GitHub repository links for your most relevant projects to make your technical experience easier to verify.'
+      'Replace generic project descriptions with measurable outcomes such as accuracy, performance, users served, or features delivered whenever those numbers are available.'
+    );
+    resumeRecommendations.push(
+      'Link your most relevant GitHub repositories directly from the corresponding project entries so your technical work is easy to verify.'
     );
   }
+
+  const uniqueRecommendations = [...new Set(resumeRecommendations)];
+  const finalResumeRecommendations = uniqueRecommendations.slice(0, 8);
+
   const strengths = [];
   if (verifiedSkills.length > 0) {
     const verifiedNames = verifiedSkills.map(v => v.skill).join(', ');
@@ -211,8 +215,8 @@ export function mergeProfile(resumeAnalysis = {}, githubAnalysis = {}) {
     github: githubAnalysis,
     verifiedSkills,
     unverifiedClaims,
-    resumeRecommendations,
-    strengths,
+    resumeRecommendations: finalResumeRecommendations,
+    strengths:
     weaknesses,
     careerDomains,
     metadata: {
