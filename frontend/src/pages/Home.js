@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { Upload, FileText, CheckCircle2, Target, BookOpen, Mail, Sparkles, ShieldCheck, ArrowRight, Zap, Github, Lock, BarChart3, SearchCheck } from 'lucide-react';
+import { Upload, FileText, CheckCircle2, Target, BookOpen, Mail, ShieldCheck, ArrowRight, Zap, Github, Lock, BarChart3, SearchCheck } from 'lucide-react';
 import { useAnalyze } from '../hooks/useAnalyze';
 import LoadingScreen from '../components/LoadingScreen';
 import BackgroundEffects from '../components/BackgroundEffects';
 import AiAgentsBar from '../components/AiAgentsBar';
-import { useNavigate } from 'react-router-dom';
 
 const Home = () => {
   const [file, setFile] = useState(null);
@@ -13,7 +12,6 @@ const Home = () => {
   const [githubUrl, setGithubUrl] = useState('');
 
   const { analyze, loading, progress, currentStep } = useAnalyze();
-  const navigate = useNavigate();
 
   const onDrop = (acceptedFiles) => {
     if (acceptedFiles.length > 0) {
