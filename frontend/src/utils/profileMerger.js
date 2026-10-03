@@ -184,7 +184,7 @@ export function mergeProfile(resumeAnalysis = {}, githubAnalysis = {}) {
   }
 
   const uniqueRecommendations = [...new Set(resumeRecommendations)];
-  const finalResumeRecommendations = uniqueRecommendations.slice(0, 8);
+  const finalResumeRecommendations = uniqueRecommendations.slice(0, 5);
 
   const strengths = [];
   if (verifiedSkills.length > 0) {
