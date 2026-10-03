@@ -14,18 +14,35 @@ const Navbar = () => {
   };
 
   return (
-    <header className="sticky top-0 z-50 border-b border-white/10 bg-[#07090f]/80 backdrop-blur-2xl">
+    <header className="sticky top-0 z-50 border-b border-white/[0.08] bg-[#07090f]/85 backdrop-blur-2xl shadow-[0_8px_30px_-20px_rgba(34,211,238,.35)]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-[72px]">
 
           {/* Brand Logo */}
           <Link to="/" className="flex items-center gap-3 group">
-            <div className="w-9 h-9 rounded-xl bg-white flex items-center justify-center shadow-lg shadow-white/5">
-              <span className="text-sm font-black text-slate-950">S</span>
+            <div className="relative w-11 h-11 shrink-0 rounded-2xl border border-white/10 bg-gradient-to-br from-[#111b38] via-[#0b1224] to-[#07090f] shadow-[0_0_30px_-8px_rgba(34,211,238,0.65)] overflow-hidden transition-transform duration-300 group-hover:scale-[1.04]">
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(34,211,238,.22),transparent_48%),radial-gradient(circle_at_75%_80%,rgba(168,85,247,.22),transparent_48%)]" />
+              <svg viewBox="0 0 48 48" className="relative w-full h-full p-2" aria-hidden="true">
+                <defs>
+                  <linearGradient id="skillhive-logo-gradient" x1="5" y1="5" x2="43" y2="43">
+                    <stop offset="0%" stopColor="#22d3ee" />
+                    <stop offset="52%" stopColor="#3b82f6" />
+                    <stop offset="100%" stopColor="#a855f7" />
+                  </linearGradient>
+                </defs>
+                <path d="M24 5.5 39.5 14.5v19L24 42.5 8.5 33.5v-19L24 5.5Z" fill="none" stroke="url(#skillhive-logo-gradient)" strokeWidth="2.2" />
+                <path d="M16 24h16M20 16.5l8 15M28 16.5l-8 15" stroke="url(#skillhive-logo-gradient)" strokeWidth="1.4" opacity=".8" />
+                <circle cx="16" cy="24" r="2.7" fill="#22d3ee" />
+                <circle cx="28" cy="16.5" r="2.7" fill="#3b82f6" />
+                <circle cx="28" cy="31.5" r="2.7" fill="#a855f7" />
+              </svg>
             </div>
             <div>
-              <div className="text-[17px] font-extrabold tracking-[-0.02em] text-white">SKILLHIVE</div>
-              <div className="hidden sm:block text-[9px] uppercase tracking-[0.18em] text-slate-500">Career Intelligence</div>
+              <div className="flex items-center gap-2">
+                <div className="text-[17px] font-extrabold tracking-[-0.025em] text-white">SKILL<span className="text-cyan-300">HIVE</span></div>
+                <span className="hidden lg:inline-flex px-1.5 py-0.5 rounded-md border border-cyan-400/20 bg-cyan-400/5 text-[8px] font-bold tracking-[0.16em] text-cyan-300">AI</span>
+              </div>
+              <div className="hidden sm:block text-[9px] uppercase tracking-[0.2em] text-slate-500">Career Intelligence</div>
             </div>
           </Link>
 
