@@ -10,6 +10,7 @@ import BackgroundEffects from '../components/BackgroundEffects';
 import { mergeProfile } from '../utils/profileMerger';
 import { getHistory, getAnalysis } from '../api/client';
 import { useAnalysisContext } from '../context/AnalysisContext';
+import { useAuth } from '../context/AuthContext';
 
 const Results = () => {
   const [activeTab, setActiveTab] = useState('overview');
@@ -18,6 +19,7 @@ const Results = () => {
   const [requestedMatches, setRequestedMatches] = useState({});
   const navigate = useNavigate();
   const { analysisData } = useAnalysisContext();
+  const { user } = useAuth();
 
   useEffect(() => {
     let cancelled = false;
@@ -161,6 +163,7 @@ const Results = () => {
   const candidateName =
     result?.metadata?.candidateName ||
     result?.candidateProfile?.user?.name ||
+    user?.name ||
     'Candidate';
 
   const normalizedCandidateName = String(candidateName).trim();
@@ -667,7 +670,7 @@ const Results = () => {
 
   const renderCoverLetter = () => (
     <div className="fade-in">
-      <CoverLetterCard coverLetter={displayCoverLetterData} />
+      <CoverLetterCard coverLetter={displayCoverLetterData} candidateName={normalizedCandidateName} />
     </div>
   );
 
