@@ -92,7 +92,6 @@ export function verifySkillWithGithubEvidence(skill, githubAnalysis) {
 
 export function deriveCareerDomains(resumeAnalysis, githubAnalysis) {
   const domains = new Set();
-  const languages = githubAnalysis?.languages || [];
   const skills = resumeAnalysis?.core_match?.matched_skills || [];
 
   if (skills.some(s => /react|vue|angular|html|css|tailwind/i.test(s))) domains.add('Frontend Engineering');
