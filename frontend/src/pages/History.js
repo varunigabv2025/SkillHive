@@ -38,6 +38,7 @@ const History = () => {
     try {
       const analysis = await getAnalysis(id);
       sessionStorage.setItem('analysisResult', JSON.stringify(analysis));
+      sessionStorage.setItem('selectedAnalysisId', String(id));
       navigate('/results');
     } catch (error) {
       toast.error('Failed to load analysis details');
