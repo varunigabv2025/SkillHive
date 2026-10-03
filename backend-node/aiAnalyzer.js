@@ -85,6 +85,34 @@ function fallbackCoreMatch(resumeText, jobDescription) {
   };
 }
 
+async function analyzeCoreMatch(resumeText, jobDescription) {
+  try {
+    const result = await callAI(
+      'Compare the resume with the job description. Return ONLY JSON with overall_score, section_scores {skills,experience,education,keywords}, matched_skills, missing_skills, improvement_tips, keyword_gaps, summary. Scores must be integers from 0 to 100. Never invent resume facts.',
+      `RESUME:\n${resumeText}\n\nJOB DESCRIPTION:\n${jobDescription}`
+    );
+    if (!result || !result.section_scores || !Array.isArray(result.matched_skills) || !Array.isArray(result.missing_skills)) {
+      throw new Error('Invalid core match response');
+    }
+    return result;
+  } catch (error) {
+    return fallbackCoreMatch(resumeText, jobDescription);
+  }
+}
+
+async function simulateATS(resumeText, jobDescription) {
+  try {
+    const result = await callAI(
+      'Act as an ATS scanner. Return ONLY JSON with ats_score, parsing_issues, detected_sections, missing_sections, keyword_density {high_match,partial_match,missing}, formatting_warnings, ats_verdict. Never invent sections.',
+      `RESUME:\n${resumeText}\n\nJOB DESCRIPTION:\n${jobDescription}`
+    );
+    result.detected_sections = detectSections(resumeText);
+    return result;
+  } catch (error) {
+    return fallbackATS(resumeText, jobDescription);
+  }
+}
+
 function fallbackATS(resumeText, jobDescription) {
   const detected = detectSections(resumeText);
   const expected = ["Education", "Skills", "Projects", "Experience", "Certifications", "Achievements"];
