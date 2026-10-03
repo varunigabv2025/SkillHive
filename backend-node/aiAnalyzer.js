@@ -265,9 +265,9 @@ function fallbackATS(resumeText, jobDescription) {
     detected_sections: detected.length > 0 ? detected : ["Education", "Skills", "Experience"],
     missing_sections: missing,
     keyword_density: {
-      high_match: highMatch.length > 0 ? highMatch : ["JavaScript", "Git"],
-      partial_match: ["REST API", "Agile"],
-      missing: missingKw.length > 0 ? missingKw : ["Docker", "Kubernetes"]
+      high_match: highMatch,
+      partial_match: [],
+      missing: missingKw
     },
     formatting_warnings: [],
     ats_verdict: score >= 75 ? "Pass - High ATS Compatibility" : "Conditional Pass - Optimization Recommended"
