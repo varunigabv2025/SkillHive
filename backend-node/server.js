@@ -17,7 +17,7 @@ app.use(cors({
     'http://localhost:3000',
     'http://127.0.0.1:3000',
     'http://localhost:8000',
-    'https://resume-iq-jade-nu.vercel.app'
+    'https://skill-hive-green.vercel.app'
   ],
   credentials: true
 }));
