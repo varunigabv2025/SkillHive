@@ -174,228 +174,30 @@ function fallbackRewrites(resumeText) {
 }
 
 function validateRewrites(result, resumeText) {
-  if (!result || !Array.isArray(result.rewrites)) return false;
+  if (!result || !Array.isArray(result.rewrites) || result.rewrites.length === 0) return false;
 
-  const resumeNumbers = String(resumeText || "").match(/\b\d+(?:\.\d+)?%?|\$\d+(?:\.\d+)?\b/g) || [];
+  const source = String(resumeText || "");
+  const sourceLower = source.toLowerCase();
+  const resumeNumbers = source.match(/\b\d+(?:\.\d+)?%?|\$\d+(?:\.\d+)?\b/g) || [];
   const allowedNumbers = new Set(resumeNumbers);
 
-  return result.rewrites.every(item => {
+  const blocked = /(@|https?:\/\/|linkedin\.com|github\.com|\b(b\.?tech|m\.?tech|bachelor|master|degree|university|college|cgpa|gpa)\b|\b(chennai|india)\b)/i;
+
+  return result.rewrites.slice(0, 5).every(item => {
     if (!item || typeof item.original !== "string" || typeof item.improved !== "string") return false;
-    if (item.original.length < 10 || item.improved.length < 10) return false;
 
-    const improvedNumbers = item.improved.match(/\b\d+(?:\.\d+)?%?|\$\d+(?:\.\d+)?\b/g) || [];
-    return improvedNumbers.every(n => allowedNumbers.has(n));
+    const original = item.original.trim();
+    const improved = item.improved.trim();
+
+    if (original.length < 20 || improved.length < 20) return false;
+    if (blocked.test(original)) return false;
+    if (!sourceLower.includes(original.toLowerCase().slice(0, Math.min(80, original.length)))) return false;
+
+    const improvedNumbers = improved.match(/\b\d+(?:\.\d+)?%?|\$\d+(?:\.\d+)?\b/g) || [];
+    if (!improvedNumbers.every(n => allowedNumbers.has(n))) return false;
+
+    return true;
   });
-}
-
-function fallbackGaps(resumeText, jobDescription) {
-  const core = fallbackCoreMatch(resumeText, jobDescription);
-  const missing = core.missing_skills;
-
-  const skillGaps = missing.map(skill => ({
-    skill,
-    priority: "High",
-    estimated_time: "2 - 3 weeks",
-    resources: [
-      { name: `${skill} Official Documentation & Guides`, url: `https://google.com/search?q=${encodeURIComponent(skill + ' documentation')}` },
-      { name: `Mastering ${skill} Hands-on Course`, url: `https://coursera.org/search?query=${encodeURIComponent(skill)}` }
-    ]
-  }));
-
-  const readiness = Math.max(30, 100 - (missing.length * 10));
-
-  return {
-    readiness_percentage: readiness,
-    gap_summary: `Identified ${missing.length} skill gaps required for target position readiness.`,
-    skill_gaps: skillGaps,
-    weekly_milestones: [
-      { week: 1, title: "Foundations & Syntax", description: `Master syntax and core concepts of ${missing[0] || 'target tech'}.` },
-      { week: 2, title: "Architecture & Integration", description: `Build small services integrating ${missing[0] || 'target tech'} with existing stack.` },
-      { week: 3, title: "System Design & Testing", description: `Implement comprehensive unit tests and optimize system performance.` },
-      { week: 4, title: "Production Deployment", description: `Deploy full-stack project to cloud environment with CI/CD pipeline.` }
-    ],
-    certifications: [
-      { name: `Certified ${missing[0] || 'Cloud'} Developer`, provider: "AWS / Industry Accredited" },
-      { name: `Professional ${missing[1] || 'DevOps'} Specialist`, provider: "Linux Foundation" }
-    ],
-    portfolio_projects: [
-      { title: `Full-Stack ${missing[0] || 'Cloud'} Microservice`, description: `Build a resilient microservice architecture utilizing ${missing.join(' and ')}.`, tech_stack: missing },
-      { title: `Real-time Analytics Dashboard`, description: `Implement dynamic metrics telemetry with high-throughput streaming.`, tech_stack: [missing[0] || 'Node.js', 'WebSockets'] }
-    ],
-    timeline: "4 - 6 Weeks Dedicated Upskilling",
-    milestones: [
-      { label: "Core Foundation & Syntax", percentage: 25 },
-      { label: "Hands-on Project Building", percentage: 50 },
-      { label: "Advanced System Design Integration", percentage: 75 },
-      { label: "Production Deployment & Mastery", percentage: 100 }
-    ]
-  };
-}
-
-function extractJobTitle(jobDescription = "") {
-  const text = String(jobDescription || "").trim();
-  if (!text) return "the position";
-
-  const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
-
-  const explicit = lines.find(line => /^(job\s*title|position|role)\s*[:\-]/i.test(line));
-  if (explicit) {
-    const title = explicit.replace(/^(job\s*title|position|role)\s*[:\-]\s*/i, "").trim();
-    if (title) return title.replace(/\s+position$/i, "").trim();
-  }
-
-  const labeled = lines.find(line => /\b(job\s*title|position|role)\b/i.test(line) && line.length < 120);
-  if (labeled) {
-    const title = labeled.replace(/^(job\s*title|position|role)\s*[:\-]?\s*/i, "").trim();
-    if (title && !/^the position$/i.test(title)) return title.replace(/\s+position$/i, "").trim();
-  }
-
-  const first = lines[0] || "";
-
-  // Job postings often put the role followed by a comma-separated
-  // requirements tagline, e.g. "WEB DEVELOPER, WELL VERSED IN REACT...".
-  const firstSegment = first.split(",")[0].trim();
-  if (
-    firstSegment.length > 3 &&
-    firstSegment.length < 60 &&
-    /\b(developer|engineer|designer|analyst|scientist|intern|manager|architect|consultant|specialist|administrator|lead)\b/i.test(firstSegment)
-  ) {
-    return firstSegment.replace(/\s+position$/i, "").trim();
-  }
-
-  if (first.length > 3 && first.length < 80 && !/^(job description|about the role|responsibilities|requirements)$/i.test(first)) {
-    return first.replace(/\s+position$/i, "").trim();
-  }
-
-  return "the position";
-}
-
-function extractResumeProjects(resumeText = "") {
-  const text = String(resumeText || "");
-  const lines = text
-    .split(/\r?\n/)
-    .map(line => line.replace(/^[-•*]\s*/, "").trim())
-    .filter(Boolean);
-
-  const start = lines.findIndex(line => /^(projects?|academic projects?|personal projects?)\s*:?$/i.test(line));
-  if (start === -1) return [];
-
-  const stopPattern = /^(experience|education|skills?|certifications?|achievements?|languages?|interests?|references?|contact|summary|objective)\s*:?$/i;
-  const projects = [];
-
-  for (let i = start + 1; i < Math.min(lines.length, start + 45); i++) {
-    if (stopPattern.test(lines[i])) break;
-
-    const line = lines[i];
-    if (line.length < 4) continue;
-
-    // Project headings are usually short and do not end with sentence punctuation.
-    if (
-      line.length <= 90 &&
-      !/[.!?]$/.test(line) &&
-      !/^https?:\/\//i.test(line) &&
-      !/^(developed|built|created|implemented|designed|used|worked|responsible|integrated|deployed|implemented)\b/i.test(line)
-    ) {
-      projects.push({
-        title: line.replace(/\s*[|–—-]\s*.*$/, "").trim(),
-        details: lines.slice(i + 1, Math.min(i + 4, lines.length))
-          .filter(x => !stopPattern.test(x))
-          .join(" ")
-          .slice(0, 280)
-      });
-      if (projects.length >= 3) break;
-    }
-  }
-
-  // Fallback for resumes whose project headings are not clearly separated.
-  if (projects.length === 0) {
-    const projectLines = [];
-    for (let i = start + 1; i < Math.min(lines.length, start + 30); i++) {
-      if (stopPattern.test(lines[i])) break;
-      if (lines[i].length >= 4) projectLines.push(lines[i]);
-    }
-    return projectLines.slice(0, 3).map(line => ({ title: line.slice(0, 90), details: line }));
-  }
-
-  return projects;
-}function isRealKey(key) {
-  return Boolean(key && !key.includes('your_'));
-}
-
-async function requestCompletion(prompt) {
-  if (isRealKey(GOOGLE_API_KEY)) {
-    const response = await axios.post(
-      `https://generativelanguage.googleapis.com/v1beta/models/${GEMMA_MODEL}:generateContent`,
-      {
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.3 }
-      },
-      {
-        headers: { 'x-goog-api-key': GOOGLE_API_KEY, 'Content-Type': 'application/json' },
-        timeout: 120000
-      }
-    );
-    const parts = response.data.candidates?.[0]?.content?.parts || [];
-    return parts.filter(p => !p.thought).map(p => p.text || '').join('');
-  }
-
-  if (isRealKey(OPENROUTER_API_KEY)) {
-    const response = await axios.post(
-      'https://openrouter.ai/api/v1/chat/completions',
-      {
-        model: AI_MODEL,
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.3
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${OPENROUTER_API_KEY}`,
-          'Content-Type': 'application/json'
-        },
-        timeout: 60000
-      }
-    );
-    return response.data.choices?.[0]?.message?.content || '';
-  }
-
-  throw new Error('No AI API key configured');
-}
-
-async function callAI(instructions, input) {
-  const text = (await requestCompletion(`${instructions}\n\n${input}`))
-    .replace(/^\s*\`\`\`json\\s*/i, '')
-    .replace(/^\s*\`\`\`\\s*/i, '')
-    .replace(/\s*\`\`\`\s*$//i, '')
-    .trim();
-
-  const start = text.indexOf('{');
-  const end = text.lastIndexOf('}');
-  if (start < 0 || end < start) throw new Error('AI response did not contain JSON');
-  return JSON.parse(text.slice(start, end + 1));
-}
-
-async function analyzeCoreMatch(resumeText, jobDescription) {
-  try {
-    return await callAI(
-      'Compare the resume with the job description. Return ONLY JSON with overall_score, section_scores {skills,experience,education,keywords}, matched_skills, missing_skills, improvement_tips, keyword_gaps, summary. Scores must be integers from 0 to 100. Never invent resume facts.',
-      `RESUME:\n${resumeText}\n\nJOB DESCRIPTION:\n${jobDescription}`
-    );
-  } catch (error) {
-    return fallbackCoreMatch(resumeText, jobDescription);
-  }
-}
-
-async function simulateATS(resumeText, jobDescription) {
-  try {
-    const result = await callAI(
-      'Act as an ATS scanner. Return ONLY JSON with ats_score, parsing_issues, detected_sections, missing_sections, keyword_density {high_match,partial_match,missing}, formatting_warnings, ats_verdict. Never invent sections.',
-      `RESUME:\n${resumeText}\n\nJOB DESCRIPTION:\n${jobDescription}`
-    );
-    result.detected_sections = detectSections(resumeText);
-    return result;
-  } catch (error) {
-    return fallbackATS(resumeText, jobDescription);
-  }
 }
 
 async function rewriteBullets(resumeText, jobDescription) {
