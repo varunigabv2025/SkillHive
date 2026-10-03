@@ -24,14 +24,8 @@ const Results = () => {
     let cancelled = false;
 
     const loadResults = async () => {
-      if (analysisData) {
-        setResult(analysisData);
-        return;
-      }
-
-      // If the user opened a specific item from Analysis Logs, always reload
-      // that exact database record. This prevents an older/stale session result
-      // from showing a different score than the selected history card.
+      // History -> Inspect selects a specific database record. It must take
+      // precedence over AnalysisContext, which may still contain the latest analysis.
       const selectedAnalysisId = sessionStorage.getItem('selectedAnalysisId');
       if (selectedAnalysisId) {
         try {
@@ -47,6 +41,12 @@ const Results = () => {
         }
       }
 
+      if (analysisData) {
+        setResult(analysisData);
+        return;
+      }
+
+      // If no specific history record was selected, recover the stored/current analysis.
       const storedResult = sessionStorage.getItem('analysisResult');
       if (storedResult) {
         try {
