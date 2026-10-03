@@ -343,7 +343,16 @@ async function analyzeGaps(resumeText, jobDescription) {
 async function generateCoverLetter(resumeText, jobDescription, candidateName = "Candidate", githubAnalysis = null) {
   try {
     return await callAI(
-      `You are a cover letter writer. Return ONLY JSON: {"subject_line": "", "cover_letter": "", "highlights_used": [], "tone": "Professional"}`,
+      `You are an expert cover-letter writer creating a truthful, job-specific application letter.
+Rules:
+1. Use BOTH the resume and job description.
+2. Treat the resume as the source of truth. Never invent employers, experience, achievements, metrics, certifications, technologies, responsibilities, or years of experience.
+3. If the candidate is a student or early-career candidate, describe academic, project, or hands-on experience rather than implying a long professional career.
+4. Mention 2-3 relevant skills or projects actually present in the resume and relevant to the job.
+5. Explain why those skills or projects are relevant to this specific role.
+6. Avoid generic filler and unsupported claims.
+7. Keep the letter around 220-320 words in 3-4 concise paragraphs.
+8. Return ONLY valid JSON: {"subject_line":"","cover_letter":"","highlights_used":[],"tone":"Professional & Tailored"}`,
       `CANDIDATE: ${candidateName}\nRESUME:\n${resumeText}\nJOB:\n${jobDescription}`
     );
   } catch (e) {
