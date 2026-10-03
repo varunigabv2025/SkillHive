@@ -187,6 +187,18 @@ function extractJobTitle(jobDescription = "") {
   }
 
   const first = lines[0] || "";
+
+  // Job postings often put the role followed by a comma-separated
+  // requirements tagline, e.g. "WEB DEVELOPER, WELL VERSED IN REACT...".
+  const firstSegment = first.split(",")[0].trim();
+  if (
+    firstSegment.length > 3 &&
+    firstSegment.length < 60 &&
+    /\b(developer|engineer|designer|analyst|scientist|intern|manager|architect|consultant|specialist|administrator|lead)\b/i.test(firstSegment)
+  ) {
+    return firstSegment.replace(/\s+position$/i, "").trim();
+  }
+
   if (first.length > 3 && first.length < 80 && !/^(job description|about the role|responsibilities|requirements)$/i.test(first)) {
     return first.replace(/\s+position$/i, "").trim();
   }
