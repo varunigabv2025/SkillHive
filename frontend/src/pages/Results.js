@@ -25,7 +25,13 @@ const Results = () => {
     } else {
       const storedResult = sessionStorage.getItem('analysisResult');
       if (storedResult) {
-        setResult(JSON.parse(storedResult));
+        try {
+          setResult(JSON.parse(storedResult));
+        } catch (error) {
+          console.error('Invalid stored analysis result:', error);
+          sessionStorage.removeItem('analysisResult');
+          navigate('/');
+        }
       } else {
         navigate('/');
       }
@@ -33,7 +39,14 @@ const Results = () => {
   }, [analysisData, navigate]);
 
   if (!result) {
-    return null;
+    return (
+      <div className="min-h-screen bg-space-950 flex items-center justify-center">
+        <div className="text-center font-mono text-cyan-400">
+          <div className="text-4xl mb-4">⚙</div>
+          <p>Loading analysis results...</p>
+        </div>
+      </div>
+    );
   }
 
   // Single Source of Truth Consumption
@@ -345,7 +358,7 @@ const Results = () => {
                   disabled={!!requestedMatches[match.name]}
                   className={`w-full py-2 px-4 rounded-xl border text-xs font-mono font-semibold transition-all ${requestedMatches[match.name] ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/40 cursor-default' : 'bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border-purple-500/40'}`}
                 >
-                  {requestedMatches[match.name] ? '✓ Request Sent' : 'Connect for SkillSwap'
+                  {requestedMatches[match.name] ? '✓ Request Sent' : 'Connect for SkillSwap'}
                 </button>
               </div>
             ))}
