@@ -648,9 +648,9 @@ async function runAllAnalyses(resumeText, jobDescription, candidateName = 'Candi
   const results = await Promise.allSettled([
     analyzeCoreMatch(resumeText, jobDescription),
     simulateATS(resumeText, jobDescription),
-    rewriteBullets(resumeText, jobDescription),
+    Promise.resolve(fallbackRewrites(resumeText)),
     analyzeGaps(resumeText, jobDescription),
-    generateCoverLetter(resumeText, jobDescription, candidateName, githubAnalysis),
+    Promise.resolve(fallbackCoverLetter(resumeText, jobDescription, candidateName, githubAnalysis)),
     generateInterviewPrep(resumeText, jobDescription, candidateName, githubAnalysis)
   ]);
 
