@@ -6,7 +6,7 @@ const bcrypt = require('bcryptjs');
 const connectionString = process.env.DATABASE_URL;
 
 if (!connectionString) {
-  console.error('DATABASE_URL is not set. Configure Render PostgreSQL DATABASE_URL before starting the backend.');
+  console.error('DATABASE_URL is not set. Configure it in Render.');
 }
 
 const pool = new Pool({
@@ -18,6 +18,11 @@ const pool = new Pool({
 });
 
 let initPromise;
+
+function translateSql(sql) {
+  let index = 0;
+  return sql.replace(/\?/g, () => '$' + (++index));
+}
 
 async function initializeDatabase() {
   if (!connectionString) throw new Error('DATABASE_URL is required');
@@ -70,9 +75,12 @@ async function initializeDatabase() {
     )
   `);
 
-  // Add ownership to databases created before the user-isolation feature.
-  await pool.query('ALTER TABLE resume_analyses ADD COLUMN IF NOT EXISTS user_id INTEGER');
-  await pool.query('CREATE INDEX IF NOT EXISTS idx_resume_analyses_user_id ON resume_analyses(user_id)');
+  await pool.query(
+    'ALTER TABLE resume_analyses ADD COLUMN IF NOT EXISTS user_id INTEGER'
+  );
+  await pool.query(
+    'CREATE INDEX IF NOT EXISTS idx_resume_analyses_user_id ON resume_analyses(user_id)'
+  );
 
   await seedAdmin();
   console.log('Connected to PostgreSQL and initialized SkillHive database.');
@@ -88,14 +96,11 @@ async function ensureInitialized() {
   return initPromise;
 }
 
-function translateSql(sql) {
-  const parts = sql.split('?');
-  return parts.map((part, index) => (
-    index < parts.length - 1 ? part + '
+function run(sql, params = [], callback) {
   ensureInitialized()
     .then(() => {
-      const isInsert = /^\s*INSERT\s+/i.test(sql);
       const translatedSql = translateSql(sql);
+      const isInsert = /^\s*INSERT\s+/i.test(translatedSql);
       const query = isInsert && !/\bRETURNING\b/i.test(translatedSql)
         ? `${translatedSql.trim()} RETURNING id`
         : translatedSql;
@@ -116,6 +121,7 @@ function translateSql(sql) {
       if (callback) callback.call({}, err);
     });
 }
+
 function all(sql, params = [], callback) {
   ensureInitialized()
     .then(() => pool.query(translateSql(sql), params))
@@ -128,92 +134,7 @@ function all(sql, params = [], callback) {
 
 function get(sql, params = [], callback) {
   ensureInitialized()
-    .then(() => pool.query(sql, params))
-    .then(result => callback(null, result.rows[0]))
-    .catch(err => {
-      console.error('Database get error:', err);
-      callback(err);
-    });
-}
-
-async function seedAdmin() {
-  const username = (process.env.ADMIN_USERNAME || '').trim();
-  const password = process.env.ADMIN_PASSWORD || '';
-
-  if (!username || !password) {
-    console.warn('ADMIN_USERNAME / ADMIN_PASSWORD not set: no admin account will be created.');
-    return;
-  }
-
-  const existing = await pool.query(
-    "SELECT id FROM users WHERE role = 'admin' ORDER BY id LIMIT 1"
-  );
-
-  if (existing.rows.length > 0) {
-    console.log('Admin account already exists; existing credentials preserved.');
-    return;
-  }
-
-  const hash = await bcrypt.hash(password, 10);
-  await pool.query(
-    'INSERT INTO users (name, username, password_hash, role) VALUES ($1, $2, $3, $4)',
-    [username, username, hash, 'admin']
-  );
-  console.log(`Admin account created (${username})`);
-}
-
-module.exports = {
-  run,
-  all,
-  get,
-  pool,
-  ready: ensureInitialized()
-};
- + (index + 1) : part
-  )).join('');
-}
-
-function run(sql, params = [], callback) {
-  ensureInitialized()
-    .then(() => {
-      const isInsert = /^\s*INSERT\s+/i.test(sql);
-      const parts = sql.split('?');
-      const translatedSql = parts.map((part, index) => (
-        index < parts.length - 1 ? part + '$' + (index + 1) : part
-      )).join('');
-      const query = isInsert && !/\bRETURNING\b/i.test(translatedSql)
-        ? `${translatedSql.trim()} RETURNING id`
-        : translatedSql;
-
-      return pool.query(query, params);
-    })
-    .then(result => {
-      const row = result.rows?.[0];
-      const context = {
-        lastID: row?.id ?? null,
-        changes: result.rowCount || 0
-      };
-      if (callback) callback.call(context, null);
-      return context;
-    })
-    .catch(err => {
-      console.error('Database run error:', err);
-      if (callback) callback.call({}, err);
-    });
-}
-function all(sql, params = [], callback) {
-  ensureInitialized()
-    .then(() => pool.query(sql, params))
-    .then(result => callback(null, result.rows))
-    .catch(err => {
-      console.error('Database all error:', err);
-      callback(err);
-    });
-}
-
-function get(sql, params = [], callback) {
-  ensureInitialized()
-    .then(() => pool.query(sql, params))
+    .then(() => pool.query(translateSql(sql), params))
     .then(result => callback(null, result.rows[0]))
     .catch(err => {
       console.error('Database get error:', err);
