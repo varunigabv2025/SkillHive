@@ -38,22 +38,29 @@ function fallbackCoreMatch(resumeText, jobDescription) {
   const resumeKeywords = extractKeywords(resumeText);
   const jdKeywords = extractKeywords(jobDescription);
 
-  const matched = jdKeywords.length > 0
-    ? jdKeywords.filter(k => resumeKeywords.map(r => r.toLowerCase()).includes(k.toLowerCase()))
-    : resumeKeywords;
-
+  const resumeLower = resumeKeywords.map(r => r.toLowerCase());
+  const matched = jdKeywords.filter(k => resumeLower.includes(k.toLowerCase()));
   const missing = jdKeywords.filter(k => !matched.map(m => m.toLowerCase()).includes(k.toLowerCase()));
 
-  const matchedSet = new Set(matched);
-  const matchedSkills = [...matchedSet];
+  const matchedSkills = [...new Set(matched)];
   const missingSkills = [...new Set(missing)];
 
-  const skillsScore = Math.min(100, Math.max(35, Math.round((matchedSkills.length / Math.max(1, jdKeywords.length)) * 100)));
-  const experienceScore = Math.min(100, Math.max(40, skillsScore + 5));
+  const skillsScore = jdKeywords.length
+    ? Math.round((matchedSkills.length / jdKeywords.length) * 100)
+    : 0;
+  const experienceScore = Math.min(100, Math.max(40, skillsScore));
   const educationScore = detectSections(resumeText).includes("Education") ? 85 : 50;
   const keywordsScore = skillsScore;
+  const overallScore = Math.round(
+    (skillsScore * 0.4) + (experienceScore * 0.3) + (educationScore * 0.15) + (keywordsScore * 0.15)
+  );
 
-  const overallScore = Math.round((skillsScore * 0.4) + (experienceScore * 0.3) + (educationScore * 0.15) + (keywordsScore * 0.15));
+  const matchedText = matchedSkills.length
+    ? matchedSkills.join(", ")
+    : "no directly matched core technologies";
+  const missingText = missingSkills.length
+    ? missingSkills.join(", ")
+    : "no major keyword gaps";
 
   return {
     overall_score: overallScore,
@@ -63,14 +70,18 @@ function fallbackCoreMatch(resumeText, jobDescription) {
       education: educationScore,
       keywords: keywordsScore
     },
-    matched_skills: matchedSkills.length > 0 ? matchedSkills : ["JavaScript", "Git", "REST API"],
-    missing_skills: missingSkills.length > 0 ? missingSkills : ["Docker", "AWS", "Kubernetes"],
+    matched_skills: matchedSkills,
+    missing_skills: missingSkills,
     improvement_tips: [
-      `Quantify impact in bullet points using metrics and numbers.`,
-      `Incorporate missing target keywords (${missingSkills.slice(0, 3).join(', ') || 'Docker, AWS'}) into your experience section.`
+      matchedSkills.length
+        ? `Make your ${matchedText} experience more visible by connecting each skill to a specific project or implementation.`
+        : "Add the target role's relevant technologies only where you genuinely have hands-on experience.",
+      missingSkills.length
+        ? `Address the current gaps in ${missingText} through relevant projects or learning before claiming them on the resume.`
+        : "Keep your strongest project evidence prominent and easy to verify."
     ],
     keyword_gaps: missingSkills,
-    summary: `Candidate resume analyzed against target job requirements. Found ${matchedSkills.length} matching core technologies and ${missingSkills.length} key skill gaps.`
+    summary: `The resume matches ${matchedText} from the target job description and currently shows ${missingText}. The main opportunity is to make the strongest evidence easier to verify without adding unsupported claims.`
   };
 }
 
@@ -102,26 +113,79 @@ function fallbackATS(resumeText, jobDescription) {
 }
 
 function fallbackRewrites(resumeText) {
-  const lines = (resumeText || '').split('\n').map(l => l.trim()).filter(l => l.length > 25 && !l.toLowerCase().includes('education'));
-  const sampleLines = lines.slice(0, 4);
+  const lines = String(resumeText || "")
+    .split(/\r?\n/)
+    .map(line => line.replace(/^[-•*]\s*/, "").trim())
+    .filter(Boolean);
 
-  const rewrites = sampleLines.map((line, idx) => ({
-    original: line,
-    improved: `Engineered scalable solution: ${line.replace(/^[-•*]\s*/, '')} achieving 35% efficiency boost and improved system reliability.`,
-    reason: "Enhanced impact phrasing with measurable metrics and active voice verbs.",
-    confidence: 100 - (idx * 2)
-  }));
+  const sectionPattern = /^(education|skills?|technical skills|projects?|experience|work experience|internship|certifications?|achievements?|awards?|summary|objective|contact|interests?|languages?|references?)\s*:?$/i;
+  const contactPattern = /(@|https?:\/\/|linkedin\.com|github\.com|\+?\d[\d\s().-]{7,})/i;
+  const educationPattern = /\b(b\.?tech|bachelor|m\.?tech|master|degree|university|college|vit chennai|cgpa|gpa)\b/i;
+  const bulletPattern = /^(developed|built|created|implemented|designed|engineered|integrated|deployed|automated|configured|optimized|analyzed|led|worked|used|created|contributed|responsible|experience|project)\b/i;
 
-  if (rewrites.length === 0) {
-    rewrites.push({
-      original: "Developed web application using modern JavaScript frameworks.",
-      improved: "Architected and delivered high-performance web application utilizing modern JavaScript frameworks, optimizing load latency by 40%.",
-      reason: "Added active verb, specific tech context, and performance metric.",
+  const candidates = lines.filter(line => {
+    if (line.length < 35 || line.length > 320) return false;
+    if (sectionPattern.test(line) || contactPattern.test(line) || educationPattern.test(line)) return false;
+    return bulletPattern.test(line) || /^[-•*]/.test(line);
+  }).slice(0, 5);
+
+  const rewrites = candidates.map((line, idx) => {
+    const original = line.replace(/^[-•*]\s*/, "").trim();
+    let improved = original;
+
+    const verbMap = [
+      [/^developed\b/i, "Built"],
+      [/^created\b/i, "Built"],
+      [/^worked on\b/i, "Contributed to"],
+      [/^used\b/i, "Applied"],
+      [/^helped\b/i, "Contributed to"],
+      [/^responsible for\b/i, "Managed"]
+    ];
+
+    for (const [pattern, verb] of verbMap) {
+      if (pattern.test(improved)) {
+        improved = improved.replace(pattern, verb);
+        break;
+      }
+    }
+
+    if (improved === original) {
+      improved = original;
+    }
+
+    return {
+      original,
+      improved,
+      reason: improved === original
+        ? "Preserved the original facts while keeping the bullet concise and ATS-readable."
+        : "Strengthened the opening action verb without adding unsupported claims or metrics.",
+      confidence: 90 - (idx * 2)
+    };
+  });
+
+  return {
+    rewrites: rewrites.length ? rewrites : [{
+      original: "No suitable project or experience bullet was detected.",
+      improved: "Add a project or experience bullet describing what you built, the technologies used, and the result you achieved.",
+      reason: "The resume did not contain a safe bullet that could be rewritten without inventing information.",
       confidence: 100
-    });
-  }
+    }]
+  };
+}
 
-  return { rewrites };
+function validateRewrites(result, resumeText) {
+  if (!result || !Array.isArray(result.rewrites)) return false;
+
+  const resumeNumbers = String(resumeText || "").match(/\b\d+(?:\.\d+)?%?|\$\d+(?:\.\d+)?\b/g) || [];
+  const allowedNumbers = new Set(resumeNumbers);
+
+  return result.rewrites.every(item => {
+    if (!item || typeof item.original !== "string" || typeof item.improved !== "string") return false;
+    if (item.original.length < 10 || item.improved.length < 10) return false;
+
+    const improvedNumbers = item.improved.match(/\b\d+(?:\.\d+)?%?|\$\d+(?:\.\d+)?\b/g) || [];
+    return improvedNumbers.every(n => allowedNumbers.has(n));
+  });
 }
 
 function fallbackGaps(resumeText, jobDescription) {
@@ -336,10 +400,26 @@ async function simulateATS(resumeText, jobDescription) {
 
 async function rewriteBullets(resumeText, jobDescription) {
   try {
-    return await callAI(
-      'Improve resume bullets for ATS relevance without inventing facts. Return ONLY JSON: {"rewrites":[{"original":"","improved":"","reason":"","confidence":0}]}.',
+    const result = await callAI(
+      `Rewrite only genuine resume project/experience bullets for ATS relevance.
+
+STRICT RULES:
+- Never rewrite the candidate name, contact information, education, degree, college, section headings, URLs, or standalone skill lists.
+- Use only facts already present in the original bullet.
+- NEVER invent percentages, numbers, users, performance improvements, awards, responsibilities, tools, or outcomes.
+- Preserve every factual claim from the original bullet.
+- Improve clarity, action verbs, structure, and relevance to the job description.
+- Return at most 5 rewrites.
+Return ONLY JSON:
+{"rewrites":[{"original":"","improved":"","reason":"","confidence":0}]}`,
       `RESUME:\n${resumeText}\n\nJOB DESCRIPTION:\n${jobDescription}`
     );
+
+    if (!validateRewrites(result, resumeText)) {
+      throw new Error("AI rewrite failed factual validation.");
+    }
+
+    return result;
   } catch (error) {
     return fallbackRewrites(resumeText);
   }
