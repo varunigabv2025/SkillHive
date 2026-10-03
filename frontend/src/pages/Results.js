@@ -301,16 +301,18 @@ const Results = () => {
             <Sparkles className="w-4 h-4" />
             <span>Resume Recommendations</span>
           </h3>
-          <ul className="space-y-2">
+          <div className="space-y-3">
             {unifiedProfile.resumeRecommendations?.length > 0 ? unifiedProfile.resumeRecommendations.map((rec, i) => (
-              <li key={i} className="p-3 rounded-xl bg-space-950/80 border border-white/10 text-xs font-mono text-cyan-300 flex items-center space-x-2">
-                <span className="text-cyan-400">→</span>
+              <div key={i} className="p-4 rounded-xl bg-space-950/80 border border-white/10 text-sm leading-6 text-slate-200">
+                <span className="text-cyan-400 mr-2">•</span>
                 <span>{rec}</span>
-              </li>
+              </div>
             )) : (
-              <li className="p-3 rounded-xl bg-space-950/80 border border-white/10 text-xs font-mono text-slate-400">No automatic recommendations were generated for this profile.</li>
+              <div className="p-4 rounded-xl bg-space-950/80 border border-white/10 text-sm text-slate-400">
+                No automatic recommendations were generated for this profile.
+              </div>
             )}
-          </ul>
+          </div>
         </div>
       </div>
 
